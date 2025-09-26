@@ -16,8 +16,12 @@ except ImportError:
     DRAG_DROP_AVAILABLE = False
     print("Warning: tkinterdnd2 not available, falling back to click-to-select mode")
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from config import Config
-from file_manager import ImageFileManager
+from components.file_manager import ImageFileManager
 
 class RealDragDrop:
     """真正的拖拽处理器"""

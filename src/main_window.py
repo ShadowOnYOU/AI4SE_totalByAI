@@ -11,11 +11,11 @@ from typing import Optional, Callable
 from PIL import Image, ImageTk
 
 from config import Config
-from file_manager import ImageFileManager, ExportManager
-from image_list import ImageListManager
-from text_watermark import TextWatermark, TextWatermarkDialog
-from real_drag_drop import RealDragDropManager
-from simple_watermark_drag import SimpleWatermarkDrag
+from components.file_manager import ImageFileManager, ExportManager
+from components.image_list import ImageListManager
+from components.text_watermark import TextWatermark, TextWatermarkDialog
+from ui.real_drag_drop import RealDragDropManager
+from ui.simple_watermark_drag import SimpleWatermarkDrag
 
 class MainWindow:
     """主窗口类"""

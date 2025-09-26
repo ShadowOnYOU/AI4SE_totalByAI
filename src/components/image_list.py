@@ -8,6 +8,8 @@ import os
 from typing import List, Dict, Optional, Callable
 from PIL import Image
 import threading
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from config import Config
 
@@ -29,7 +31,7 @@ class ImageListManager:
                 return False
             
             # 获取图片信息
-            from file_manager import ImageFileManager
+            from components.file_manager import ImageFileManager
             file_manager = ImageFileManager()
             image_info = file_manager.get_image_info(file_path)
             
@@ -183,7 +185,7 @@ class ImageListManager:
             try:
                 file_path = image_data['path']
                 if file_path not in self.thumbnail_cache:
-                    from file_manager import ImageFileManager
+                    from components.file_manager import ImageFileManager
                     file_manager = ImageFileManager()
                     thumbnail = file_manager.create_thumbnail(file_path)
                     if thumbnail:

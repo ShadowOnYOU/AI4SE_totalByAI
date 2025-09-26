@@ -10,7 +10,7 @@ import os
 from typing import List, Callable, Optional
 
 from config import Config
-from file_manager import ImageFileManager
+from components.file_manager import ImageFileManager
 
 class DragDropHandler:
     """拖拽处理类"""

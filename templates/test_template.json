@@ -1,0 +1,15 @@
+{
+  "name": "test_template",
+  "description": "Test template description",
+  "created_time": "2025-09-26T14:24:22.801530",
+  "watermark_type": "text",
+  "text_settings": {
+    "text": "Test Watermark",
+    "font_size": 24,
+    "color": "#FF0000",
+    "position": "center"
+  },
+  "image_settings": {},
+  "exif_settings": {},
+  "position_settings": {}
+}

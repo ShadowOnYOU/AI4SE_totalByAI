@@ -83,7 +83,36 @@ class Config:
                 'quality': 95,
                 'filename_prefix': 'wm_',
                 'filename_suffix': ''
-            }
+            },
+            'last_settings': {
+                'watermark_type': 'text',
+                'text_watermark': cls.DEFAULT_WATERMARK.copy(),
+                'image_watermark': {
+                    'watermark_path': '',
+                    'scale_factor': 0.2,
+                    'transparency': 80,
+                    'position': 'bottom_right',
+                    'custom_position': None,
+                    'maintain_aspect_ratio': True,
+                    'max_size_percent': 30
+                },
+                'exif_watermark': {
+                    'font_size': 24,
+                    'font_family': 'Arial',
+                    'color': '#FFFFFF',
+                    'transparency': 80,
+                    'position': 'bottom_right',
+                    'custom_position': None,
+                    'date_format': '%Y-%m-%d',
+                    'fallback_to_file_time': True,
+                    'prefix_text': '',
+                    'suffix_text': '',
+                    'shadow': True,
+                    'outline': False
+                }
+            },
+            'auto_load_last_settings': True,
+            'default_template': ''
         }
     
     @classmethod

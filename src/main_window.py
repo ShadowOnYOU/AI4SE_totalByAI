@@ -70,6 +70,9 @@ class MainWindow:
         
         # 水印拖拽状态
         self._watermark_dragging = False
+        
+        # 自动加载上次设置
+        self.parent.after(200, self.auto_load_last_settings)
     
     def create_interface(self):
         """创建主界面"""
@@ -443,6 +446,33 @@ class MainWindow:
         
         export_btn = tk.Button(button_frame, text="导出图片", command=self.export_images, width=12)
         export_btn.pack(side=tk.LEFT)
+        
+        # 模板管理区域
+        template_frame = tk.LabelFrame(scrollable_frame, text="模板管理", padx=5, pady=5)
+        template_frame.pack(fill=tk.X, padx=5, pady=(10, 5))
+        
+        # 模板管理按钮（横向排列）
+        template_button_frame = tk.Frame(template_frame)
+        template_button_frame.pack(fill=tk.X, pady=5)
+        
+        save_template_btn = tk.Button(template_button_frame, text="保存模板", 
+                                    command=self.save_current_template, 
+                                    width=12, bg="#e8f5e8")
+        save_template_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        load_template_btn = tk.Button(template_button_frame, text="加载模板", 
+                                    command=self.load_template, 
+                                    width=12, bg="#e8f0ff")
+        load_template_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        manage_template_btn = tk.Button(template_button_frame, text="管理模板", 
+                                      command=self.manage_templates, 
+                                      width=12, bg="#fff8e8")
+        manage_template_btn.pack(side=tk.LEFT)
+        
+        # 模板状态显示
+        self.template_status_label = tk.Label(template_frame, text="", fg="gray", font=("Arial", 9))
+        self.template_status_label.pack(pady=(5, 0))
         
         # 布局滚动区域
         canvas.pack(side="left", fill="both", expand=True)
@@ -1173,6 +1203,7 @@ class MainWindow:
             if result:
                 messagebox.showinfo("成功", f"模板 '{result.name}' 保存成功！\n\n模板包含以下设置：\n- 水印类型: {self.watermark_type}\n- 模板文件: templates/{result.name}.json")
                 self.update_status(f"模板 '{result.name}' 已保存")
+                self.update_template_status(f"已保存: {result.name}")
                 
         except Exception as e:
             messagebox.showerror("错误", f"保存模板失败: {e}")
@@ -1187,6 +1218,7 @@ class MainWindow:
                 self.apply_template(result)
                 messagebox.showinfo("成功", f"模板 '{result.name}' 加载成功！\n\n已应用以下设置：\n- 水印类型: {result.watermark_type}")
                 self.update_status(f"模板 '{result.name}' 已加载")
+                self.update_template_status(f"已加载: {result.name}")
                 
         except Exception as e:
             messagebox.showerror("错误", f"加载模板失败: {e}")
@@ -1194,52 +1226,82 @@ class MainWindow:
     def apply_template(self, template: WatermarkTemplate):
         """应用模板设置"""
         try:
-            # 设置水印类型
-            self.watermark_type = template.watermark_type
-            self.watermark_type_var.set(template.watermark_type)
+            print(f"Applying template: {template.name}, type: {template.watermark_type}")
             
-            # 应用文本水印设置
+            # 1. 应用文本水印设置
             if template.text_settings:
+                print("Loading text settings...")
                 self.current_watermark.load_from_dict(template.text_settings)
                 self.update_text_ui_from_watermark()
             
-            # 应用图片水印设置
+            # 2. 应用图片水印设置
             if template.image_settings:
+                print("Loading image settings...")
                 self.current_image_watermark.load_from_dict(template.image_settings)
                 self.update_image_ui_from_watermark()
             
-            # 应用EXIF水印设置
+            # 3. 应用EXIF水印设置
             if template.exif_settings:
+                print("Loading EXIF settings...")
                 self.current_exif_watermark.load_from_dict(template.exif_settings)
                 self.update_exif_ui_from_watermark()
             
-            # 更新UI显示
+            # 4. 设置水印类型（放在最后，这样UI会正确切换）
+            self.watermark_type = template.watermark_type
+            self.watermark_type_var.set(template.watermark_type)
+            
+            # 5. 触发UI更新
             self.on_watermark_type_changed()
+            
+            # 6. 强制刷新预览
+            self.parent.after(100, self.update_preview)
+            
+            print("Template applied successfully")
             
         except Exception as e:
             print(f"Apply template failed: {e}")
+            import traceback
+            traceback.print_exc()
     
     def update_text_ui_from_watermark(self):
         """从水印设置更新文本UI"""
         try:
+            print("Updating text UI from watermark...")
+            
+            # 更新文本输入框
             if hasattr(self, 'text_entry'):
                 self.text_entry.delete(0, tk.END)
                 self.text_entry.insert(0, self.current_watermark.text)
+                print(f"  Text updated: {self.current_watermark.text}")
             
+            # 更新字体大小
             if hasattr(self, 'font_size_var'):
                 self.font_size_var.set(self.current_watermark.font_size)
+                print(f"  Font size updated: {self.current_watermark.font_size}")
             
+            # 更新颜色
             if hasattr(self, 'color_var'):
                 self.color_var.set(self.current_watermark.color)
+                print(f"  Color updated: {self.current_watermark.color}")
             
+            # 更新透明度
             if hasattr(self, 'transparency_var'):
                 self.transparency_var.set(self.current_watermark.transparency)
+                print(f"  Transparency updated: {self.current_watermark.transparency}")
             
+            # 更新位置
+            if hasattr(self, 'position_var'):
+                self.position_var.set(self.current_watermark.position)
+                print(f"  Position updated: {self.current_watermark.position}")
+            
+            # 更新阴影和描边设置
             if hasattr(self, 'shadow_var'):
                 self.shadow_var.set(self.current_watermark.shadow)
+                print(f"  Shadow updated: {self.current_watermark.shadow}")
             
             if hasattr(self, 'outline_var'):
                 self.outline_var.set(self.current_watermark.outline)
+                print(f"  Outline updated: {self.current_watermark.outline}")
                 
         except Exception as e:
             print(f"Update text UI failed: {e}")
@@ -1418,3 +1480,97 @@ class MainWindow:
                 self.drag_drop_manager.refresh_all_hints()
         except Exception as e:
             print(f"刷新拖拽提示失败: {e}")
+    
+    def auto_load_last_settings(self):
+        """自动加载上次的设置"""
+        try:
+            # 检查是否启用自动加载
+            if not self.config.get('auto_load_last_settings', True):
+                return
+            
+            # 首先尝试加载默认模板
+            default_template = self.config.get('default_template', '')
+            if default_template and self.template_manager:
+                template = self.template_manager.load_template(default_template)
+                if template:
+                    self.apply_template(template)
+                    print(f"Loaded default template: {default_template}")
+                    return
+            
+            # 如果没有默认模板，加载上次的设置
+            last_settings = self.config.get('last_settings', {})
+            if last_settings:
+                self.load_settings_from_config(last_settings)
+                print("Loaded last settings from config")
+                
+        except Exception as e:
+            print(f"Auto load settings failed: {e}")
+    
+    def load_settings_from_config(self, settings):
+        """从配置中加载设置"""
+        try:
+            # 设置水印类型
+            watermark_type = settings.get('watermark_type', 'text')
+            self.watermark_type = watermark_type
+            self.watermark_type_var.set(watermark_type)
+            
+            # 加载文本水印设置
+            text_settings = settings.get('text_watermark', {})
+            if text_settings:
+                self.current_watermark.load_from_dict(text_settings)
+                self.update_text_ui_from_watermark()
+            
+            # 加载图片水印设置
+            image_settings = settings.get('image_watermark', {})
+            if image_settings:
+                self.current_image_watermark.load_from_dict(image_settings)
+                self.update_image_ui_from_watermark()
+            
+            # 加载EXIF水印设置
+            exif_settings = settings.get('exif_watermark', {})
+            if exif_settings:
+                self.current_exif_watermark.load_from_dict(exif_settings)
+                self.update_exif_ui_from_watermark()
+            
+            # 更新界面显示
+            self.on_watermark_type_changed()
+            
+        except Exception as e:
+            print(f"Load settings from config failed: {e}")
+    
+    def save_current_settings_to_config(self):
+        """保存当前设置到配置文件"""
+        try:
+            # 收集当前所有设置
+            current_settings = {
+                'watermark_type': self.watermark_type,
+                'text_watermark': self.current_watermark.get_watermark_info(),
+                'image_watermark': self.current_image_watermark.get_watermark_info(),
+                'exif_watermark': self.current_exif_watermark.get_watermark_info()
+            }
+            
+            # 更新配置
+            self.config['last_settings'] = current_settings
+            
+            # 保存配置文件
+            Config.save_config(self.config)
+            print("Current settings saved to config")
+            
+        except Exception as e:
+            print(f"Save current settings to config failed: {e}")
+    
+    def set_default_template(self, template_name):
+        """设置默认模板"""
+        try:
+            self.config['default_template'] = template_name
+            Config.save_config(self.config)
+            print(f"Default template set to: {template_name}")
+            self.update_template_status(f"默认模板: {template_name}" if template_name else "")
+            
+        except Exception as e:
+            print(f"Set default template failed: {e}")
+    
+    def update_template_status(self, message):
+        """更新模板状态显示"""
+        if hasattr(self, 'template_status_label'):
+            self.template_status_label.config(text=message)

@@ -221,6 +221,22 @@ class TemplateManager:
         except Exception as e:
             print(f"Import template failed: {e}")
             return None
+    
+    def export_template(self, template_name: str, file_path: str) -> bool:
+        """导出模板到文件"""
+        try:
+            template = self.load_template(template_name)
+            if not template:
+                return False
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(template.to_dict(), f, ensure_ascii=False, indent=2)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Export template failed: {e}")
+            return False
 
 
 class TemplateDialog:
@@ -366,17 +382,86 @@ class TemplateDialog:
     
     def create_manage_interface(self):
         """创建管理界面"""
-        # 类似加载界面，但有更多管理功能
-        self.create_load_interface()
+        import tkinter as tk
+        from tkinter import ttk
         
-        # 添加额外的管理按钮
-        # TODO: 可以添加导出、重命名等功能
+        main_frame = tk.Frame(self.dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # 模板列表
+        list_frame = tk.LabelFrame(main_frame, text="模板管理", padx=5, pady=5)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # 创建Treeview
+        columns = ("name", "type", "created", "default")
+        self.template_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=12)
+        
+        # 设置列标题
+        self.template_tree.heading("name", text="模板名称")
+        self.template_tree.heading("type", text="类型")
+        self.template_tree.heading("created", text="创建时间")
+        self.template_tree.heading("default", text="默认模板")
+        
+        # 设置列宽
+        self.template_tree.column("name", width=200)
+        self.template_tree.column("type", width=100)
+        self.template_tree.column("created", width=150)
+        self.template_tree.column("default", width=80)
+        
+        # 添加滚动条
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.template_tree.yview)
+        self.template_tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.template_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # 绑定选择事件
+        self.template_tree.bind("<<TreeviewSelect>>", self.on_template_select)
+        self.template_tree.bind("<Double-1>", self.on_template_double_click)
+        
+        # 描述区域
+        desc_frame = tk.LabelFrame(main_frame, text="模板描述", padx=5, pady=5)
+        desc_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.desc_text = tk.Text(desc_frame, height=3, wrap=tk.WORD, state=tk.DISABLED)
+        self.desc_text.pack(fill=tk.X)
+        
+        # 按钮区域
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        # 左侧按钮
+        left_buttons = tk.Frame(button_frame)
+        left_buttons.pack(side=tk.LEFT)
+        
+        tk.Button(left_buttons, text="删除", command=self.delete_selected_template).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(left_buttons, text="设为默认", command=self.set_as_default).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(left_buttons, text="取消默认", command=self.unset_default).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(left_buttons, text="导入", command=self.import_template).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(left_buttons, text="导出", command=self.export_template).pack(side=tk.LEFT)
+        
+        # 右侧按钮
+        tk.Button(button_frame, text="关闭", command=self.cancel_clicked).pack(side=tk.RIGHT)
+        
+        # 加载模板列表
+        self.refresh_template_list()
+        
+        # 保存主窗口引用用于设置默认模板
+        if hasattr(self.parent, 'main_window'):
+            self.main_window = self.parent.main_window
+        else:
+            self.main_window = self.parent
     
     def refresh_template_list(self):
         """刷新模板列表"""
         # 清空现有项目
         for item in self.template_tree.get_children():
             self.template_tree.delete(item)
+        
+        # 获取默认模板名称
+        default_template = ""
+        if hasattr(self, 'main_window') and self.main_window:
+            default_template = self.main_window.config.get('default_template', '')
         
         # 添加模板项目
         template_names = self.template_manager.get_template_list()
@@ -389,11 +474,16 @@ class TemplateDialog:
                 except:
                     created_time = info['created_time']
                 
-                self.template_tree.insert('', tk.END, values=(
-                    info['name'],
-                    info['watermark_type'],
-                    created_time
-                ))
+                # 是否为默认模板
+                is_default = "是" if name == default_template else ""
+                
+                # 根据列数决定values
+                if self.mode == "manage":
+                    values = (info['name'], info['watermark_type'], created_time, is_default)
+                else:
+                    values = (info['name'], info['watermark_type'], created_time)
+                
+                self.template_tree.insert('', tk.END, values=values)
     
     def on_template_select(self, event):
         """模板选择事件"""
@@ -465,6 +555,56 @@ class TemplateDialog:
                 self.refresh_template_list()
             else:
                 messagebox.showerror("错误", "导入模板失败")
+    
+    def export_template(self):
+        """导出模板"""
+        from tkinter import filedialog, messagebox
+        
+        if not self.selected_template:
+            messagebox.showwarning("提示", "请先选择一个模板")
+            return
+        
+        file_path = filedialog.asksaveasfilename(
+            title="导出模板",
+            defaultextension=".json",
+            filetypes=[
+                ("JSON文件", "*.json"),
+                ("所有文件", "*.*")
+            ],
+            initialvalue=f"{self.selected_template}.json"
+        )
+        
+        if file_path:
+            if self.template_manager.export_template(self.selected_template, file_path):
+                messagebox.showinfo("成功", f"模板导出成功: {file_path}")
+            else:
+                messagebox.showerror("错误", "导出模板失败")
+    
+    def set_as_default(self):
+        """设置为默认模板"""
+        from tkinter import messagebox
+        
+        if not self.selected_template:
+            messagebox.showwarning("提示", "请先选择一个模板")
+            return
+        
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.set_default_template(self.selected_template)
+            messagebox.showinfo("成功", f"已将 '{self.selected_template}' 设为默认模板")
+            self.refresh_template_list()
+        else:
+            messagebox.showerror("错误", "无法设置默认模板")
+    
+    def unset_default(self):
+        """取消默认模板"""
+        from tkinter import messagebox
+        
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.set_default_template("")
+            messagebox.showinfo("成功", "已取消默认模板设置")
+            self.refresh_template_list()
+        else:
+            messagebox.showerror("错误", "无法取消默认模板")
     
     def save_template(self):
         """保存模板"""

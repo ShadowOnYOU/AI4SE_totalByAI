@@ -218,6 +218,10 @@ class WatermarkApp:
     def on_closing(self):
         """窗口关闭事件处理"""
         try:
+            # 保存当前水印设置
+            if hasattr(self, 'main_window') and self.main_window:
+                self.main_window.save_current_settings_to_config()
+            
             # 保存当前配置
             if self.config:
                 Config.save_config(self.config)

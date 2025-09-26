@@ -60,6 +60,9 @@ class MainWindow:
         
         # 预览更新防抖
         self._preview_update_pending = False
+        
+        # 水印拖拽状态
+        self._watermark_dragging = False
     
     def create_interface(self):
         """创建主界面"""
@@ -357,6 +360,24 @@ class MainWindow:
             self.preview_widget, 
             self.on_watermark_position_changed
         )
+        
+        # 设置拖拽状态回调
+        self.watermark_drag_handler.set_drag_callbacks(
+            on_start=self.on_watermark_drag_start,
+            on_end=self.on_watermark_drag_end
+        )
+    
+    def on_watermark_drag_start(self):
+        """水印开始拖拽回调"""
+        self._watermark_dragging = True
+        print("Watermark drag started - preview updates disabled")
+    
+    def on_watermark_drag_end(self):
+        """水印结束拖拽回调"""
+        self._watermark_dragging = False
+        print("Watermark drag ended - preview updates enabled")
+        # 延迟更新预览，避免立即冲突
+        self.parent.after(100, self.update_preview)
     
     def on_watermark_position_changed(self, position):
         """水印位置改变回调"""
@@ -364,10 +385,27 @@ class MainWindow:
         if hasattr(self, 'current_image_size') and self.current_image_size:
             scale_factor = self.calculate_scale_factor()
             if scale_factor > 0:
-                image_x = int(position[0] / scale_factor)
-                image_y = int(position[1] / scale_factor)
+                # 计算图片在画布上的偏移量
+                img_width, img_height = self.current_image_size
+                canvas_img_width = int(img_width * scale_factor)
+                canvas_img_height = int(img_height * scale_factor)
+                
+                canvas_width = self.preview_widget.winfo_width()
+                canvas_height = self.preview_widget.winfo_height()
+                offset_x = (canvas_width - canvas_img_width) // 2
+                offset_y = (canvas_height - canvas_img_height) // 2
+                
+                # 转换为图片坐标（减去偏移量）
+                image_x = int((position[0] - offset_x) / scale_factor)
+                image_y = int((position[1] - offset_y) / scale_factor)
+                
+                # 确保坐标在图片范围内
+                image_x = max(0, min(image_x, img_width))
+                image_y = max(0, min(image_y, img_height))
+                
                 self.current_watermark.set_custom_position((image_x, image_y))
-                self.update_preview()
+                print(f"Watermark position updated: canvas({position[0]}, {position[1]}) -> image({image_x}, {image_y}) [offset: ({offset_x}, {offset_y}), scale: {scale_factor:.3f}]")
+                # 不立即更新预览，避免循环
     
     def on_files_dropped(self, file_paths):
         """处理拖拽的文件"""
@@ -595,6 +633,10 @@ class MainWindow:
     
     def update_preview(self):
         """更新预览"""
+        # 如果正在拖拽水印，不更新预览
+        if self._watermark_dragging:
+            return
+            
         # 防抖处理，避免频繁更新
         if self._preview_update_pending:
             return
@@ -631,8 +673,8 @@ class MainWindow:
             # 保存图片尺寸用于坐标转换
             self.current_image_size = image.size
             
-            # 显示水印拖拽预览
-            if self.watermark_drag_handler:
+            # 显示水印拖拽预览（只在非拖拽状态下）
+            if self.watermark_drag_handler and not self._watermark_dragging:
                 # 计算画布上的水印位置
                 canvas_pos = self.calculate_canvas_position(image.size, self.current_watermark)
                 self.watermark_drag_handler.show_watermark(canvas_pos, self.current_watermark.text)

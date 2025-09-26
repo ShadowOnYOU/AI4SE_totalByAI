@@ -25,6 +25,10 @@ class SimpleWatermarkDrag:
         self.current_position = (0, 0)
         self.watermark_size = (100, 30)
         
+        # 状态回调
+        self.on_drag_start_callback = None
+        self.on_drag_end_callback = None
+        
         # 设置事件
         self.setup_events()
     
@@ -61,7 +65,7 @@ class SimpleWatermarkDrag:
         )
         
         self.current_position = position
-        print(f"Watermark shown at {position}")
+        # print(f"Watermark shown at {position}")  # 减少日志输出
     
     def hide_watermark(self):
         """隐藏水印"""
@@ -80,6 +84,10 @@ class SimpleWatermarkDrag:
             self.drag_start_y = event.y
             self.canvas.configure(cursor='hand2')
             print("Started dragging watermark")
+            
+            # 通知开始拖拽
+            if self.on_drag_start_callback:
+                self.on_drag_start_callback()
         else:
             self.is_dragging = False
             print("Not on watermark")
@@ -89,7 +97,7 @@ class SimpleWatermarkDrag:
         if not self.is_dragging:
             return
         
-        print(f"Dragging to ({event.x}, {event.y})")
+        # print(f"Dragging to ({event.x}, {event.y})")  # 减少日志输出
         
         # 计算移动距离
         dx = event.x - self.drag_start_x
@@ -115,6 +123,10 @@ class SimpleWatermarkDrag:
             self.is_dragging = False
             self.canvas.configure(cursor='')
             
+            # 通知结束拖拽
+            if self.on_drag_end_callback:
+                self.on_drag_end_callback()
+            
             # 通知位置改变
             if self.on_position_changed:
                 self.on_position_changed(self.current_position)
@@ -135,6 +147,11 @@ class SimpleWatermarkDrag:
         ww, wh = self.watermark_size
         
         return wx <= x <= wx + ww and wy <= y <= wy + wh
+    
+    def set_drag_callbacks(self, on_start: Optional[Callable] = None, on_end: Optional[Callable] = None):
+        """设置拖拽状态回调"""
+        self.on_drag_start_callback = on_start
+        self.on_drag_end_callback = on_end
     
     def set_position(self, position: Tuple[int, int]):
         """设置水印位置"""

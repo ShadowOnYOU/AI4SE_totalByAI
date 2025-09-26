@@ -37,8 +37,9 @@ class WatermarkApp:
             self.create_main_window()
             
         except Exception as e:
-            print(f"App initialization failed: {e}")
-            messagebox.showerror("Error", f"App initialization failed: {e}")
+            error_msg = "App initialization failed"
+            print(f"{error_msg}: {e}")
+            messagebox.showerror("Error", f"{error_msg}: {e}")
             sys.exit(1)
     
     def create_main_window(self):
@@ -101,6 +102,8 @@ class WatermarkApp:
         menubar.add_cascade(label="模板", menu=template_menu)
         template_menu.add_command(label="保存模板", command=self.save_template)
         template_menu.add_command(label="加载模板", command=self.load_template)
+        template_menu.add_separator()
+        template_menu.add_command(label="管理模板", command=self.manage_templates)
         
         # 帮助菜单
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -125,13 +128,17 @@ class WatermarkApp:
     # 菜单命令方法（占位符，后续实现）
     def import_images(self):
         """导入图片"""
-        self.update_status("导入图片功能开发中...")
-        messagebox.showinfo("提示", "导入图片功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.import_images()
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def import_folder(self):
         """导入文件夹"""
-        self.update_status("导入文件夹功能开发中...")
-        messagebox.showinfo("提示", "导入文件夹功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.import_folder()
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def export_images(self):
         """导出图片"""
@@ -150,23 +157,44 @@ class WatermarkApp:
     
     def set_image_watermark(self):
         """设置图片水印"""
-        self.update_status("图片水印功能开发中...")
-        messagebox.showinfo("提示", "图片水印功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            # 切换到图片水印模式
+            self.main_window.watermark_type_var.set("image")
+            self.main_window.on_watermark_type_changed()
+            self.update_status("已切换到图片水印模式")
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def set_exif_watermark(self):
         """设置EXIF时间水印"""
-        self.update_status("EXIF时间水印功能开发中...")
-        messagebox.showinfo("提示", "EXIF时间水印功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            # 切换到EXIF水印模式
+            self.main_window.watermark_type_var.set("exif")
+            self.main_window.on_watermark_type_changed()
+            self.update_status("已切换到EXIF时间水印模式")
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def save_template(self):
         """保存模板"""
-        self.update_status("保存模板功能开发中...")
-        messagebox.showinfo("提示", "保存模板功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.save_current_template()
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def load_template(self):
         """加载模板"""
-        self.update_status("加载模板功能开发中...")
-        messagebox.showinfo("提示", "加载模板功能开发中...")
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.load_template()
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
+    
+    def manage_templates(self):
+        """管理模板"""
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.manage_templates()
+        else:
+            messagebox.showinfo("提示", "请先启动主窗口")
     
     def show_about(self):
         """显示关于对话框"""
@@ -195,7 +223,7 @@ class WatermarkApp:
                 Config.save_config(self.config)
             self.root.destroy()
         except Exception as e:
-            print(f"关闭应用时出错: {e}")
+            print("Error during app closing:", str(e))
             self.root.destroy()
     
     def run(self):
@@ -204,8 +232,8 @@ class WatermarkApp:
             self.update_status("应用程序启动完成")
             self.root.mainloop()
         except Exception as e:
-            print(f"运行应用时出错: {e}")
-            messagebox.showerror("错误", f"运行应用时出错: {e}")
+            print("Error during app running:", str(e))
+            messagebox.showerror("Error", f"Error during app running: {e}")
 
 def main():
     """主函数"""
@@ -213,8 +241,8 @@ def main():
         app = WatermarkApp()
         app.run()
     except Exception as e:
-        print(f"程序启动失败: {e}")
-        messagebox.showerror("错误", f"程序启动失败: {e}")
+        print("Program startup failed:", str(e))
+        messagebox.showerror("Error", f"Program startup failed: {e}")
 
 if __name__ == "__main__":
     main()

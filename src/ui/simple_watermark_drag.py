@@ -39,33 +39,64 @@ class SimpleWatermarkDrag:
         self.canvas.bind('<ButtonRelease-1>', self.on_release)
         self.canvas.bind('<Motion>', self.on_motion)
     
-    def show_watermark(self, position: Tuple[int, int], text: str = "水印"):
+    def show_watermark(self, position: Tuple[int, int], text: str = "水印", watermark_type: str = "text"):
         """显示水印预览"""
         self.hide_watermark()
         
         x, y = position
-        w, h = self.watermark_size
         
-        # 创建水印矩形
-        self.watermark_rect = self.canvas.create_rectangle(
-            x, y, x + w, y + h,
-            outline='red',
-            width=2,
-            fill='',
-            tags='watermark_drag'
-        )
+        # 根据水印类型显示真实的水印内容
+        display_text = text
+        font_size = 12
+        text_color = "black"
         
-        # 创建水印文本
+        if watermark_type == "text":
+            # 文本水印：显示实际文本
+            display_text = text if text else "Sample Text"
+            text_color = "black"
+            font_size = 14
+        elif watermark_type == "image":
+            # 图片水印：显示图片名称
+            display_text = text if text else "Image Watermark"
+            text_color = "blue"
+            font_size = 12
+        elif watermark_type == "exif":
+            # EXIF水印：显示日期
+            display_text = text if text else "2024-01-15"
+            text_color = "gray"
+            font_size = 12
+        
+        # 自动截断过长的文本
+        if len(display_text) > 20:
+            display_text = display_text[:17] + "..."
+        
+        # 创建水印文本（带背景以便点击）
         self.watermark_text = self.canvas.create_text(
-            x + w//2, y + h//2,
-            text=text,
-            font=("Arial", 12),
-            fill='red',
+            x, y,
+            text=display_text,
+            font=("Arial", font_size, "bold"),
+            fill=text_color,
+            anchor="nw",
             tags='watermark_drag'
         )
+        
+        # 获取文本边界来计算点击区域
+        bbox = self.canvas.bbox(self.watermark_text)
+        if bbox:
+            # 创建透明的矩形用于点击检测（不显示边框）
+            self.watermark_rect = self.canvas.create_rectangle(
+                bbox[0]-5, bbox[1]-5, bbox[2]+5, bbox[3]+5,
+                outline='',
+                fill='',
+                width=0,
+                tags='watermark_drag'
+            )
+            self.watermark_size = (bbox[2] - bbox[0] + 10, bbox[3] - bbox[1] + 10)
+        else:
+            self.watermark_size = (100, 30)
         
         self.current_position = position
-        # print(f"Watermark shown at {position}")  # 减少日志输出
+        print(f"Watermark ({watermark_type}) shown at {position}: {display_text}")
     
     def hide_watermark(self):
         """隐藏水印"""
@@ -135,7 +166,7 @@ class SimpleWatermarkDrag:
         """鼠标移动事件"""
         if self.is_in_watermark(event.x, event.y):
             self.canvas.configure(cursor='hand2')
-        else:
+        elif not self.is_dragging:
             self.canvas.configure(cursor='')
     
     def is_in_watermark(self, x: int, y: int) -> bool:
@@ -143,10 +174,15 @@ class SimpleWatermarkDrag:
         if not self.watermark_rect:
             return False
         
-        wx, wy = self.current_position
-        ww, wh = self.watermark_size
-        
-        return wx <= x <= wx + ww and wy <= y <= wy + wh
+        # 使用canvas的bbox来获取实际区域
+        bbox = self.canvas.bbox(self.watermark_rect)
+        if bbox:
+            return bbox[0] <= x <= bbox[2] and bbox[1] <= y <= bbox[3]
+        else:
+            # 备用方案：使用当前位置和尺寸
+            wx, wy = self.current_position
+            ww, wh = self.watermark_size
+            return wx <= x <= wx + ww and wy <= y <= wy + wh
     
     def set_drag_callbacks(self, on_start: Optional[Callable] = None, on_end: Optional[Callable] = None):
         """设置拖拽状态回调"""

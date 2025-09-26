@@ -14,6 +14,9 @@ from config import Config
 from components.file_manager import ImageFileManager, ExportManager
 from components.image_list import ImageListManager
 from components.text_watermark import TextWatermark, TextWatermarkDialog
+from components.image_watermark import ImageWatermark, ImageWatermarkDialog
+from components.template_manager import TemplateManager, WatermarkTemplate, TemplateDialog
+from components.exif_text_watermark import ExifTextWatermark, ExifWatermarkDialog
 from ui.real_drag_drop import RealDragDropManager
 from ui.simple_watermark_drag import SimpleWatermarkDrag
 
@@ -30,6 +33,10 @@ class MainWindow:
         self.export_manager = ExportManager()
         self.image_list_manager = ImageListManager()
         self.current_watermark = TextWatermark()
+        self.current_image_watermark = ImageWatermark()
+        self.current_exif_watermark = ExifTextWatermark()
+        self.watermark_type = "text"  # "text", "image", or "exif"
+        self.template_manager = TemplateManager()
         self.drag_drop_manager = RealDragDropManager(self)
         self.watermark_drag_handler = None
         
@@ -83,8 +90,9 @@ class MainWindow:
         self.create_status_bar()
         
         # 配置网格权重
-        self.main_frame.grid_columnconfigure(1, weight=1)
-        self.main_frame.grid_rowconfigure(1, weight=1)
+        self.main_frame.grid_columnconfigure(1, weight=2)  # 增加中间预览区域权重
+        self.main_frame.grid_columnconfigure(2, weight=1)  # 右侧控制面板权重
+        self.main_frame.grid_rowconfigure(0, weight=1)
     
     def create_image_list_panel(self):
         """创建图片列表面板"""
@@ -164,8 +172,8 @@ class MainWindow:
     
     def create_control_panel(self):
         """创建控制面板"""
-        # 控制面板框架
-        control_frame = tk.LabelFrame(self.main_frame, text="水印设置", width=300)
+        # 控制面板框架（增加宽度）
+        control_frame = tk.LabelFrame(self.main_frame, text="水印设置", width=420)
         control_frame.grid(row=0, column=2, rowspan=2, sticky="nsew", padx=(5, 0))
         control_frame.grid_propagate(False)
         
@@ -186,16 +194,16 @@ class MainWindow:
         type_frame = tk.LabelFrame(scrollable_frame, text="水印类型", padx=5, pady=5)
         type_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        self.watermark_type = tk.StringVar(value="text")
-        text_radio = tk.Radiobutton(type_frame, text="文本水印", variable=self.watermark_type, 
+        self.watermark_type_var = tk.StringVar(value="text")
+        text_radio = tk.Radiobutton(type_frame, text="文本水印", variable=self.watermark_type_var, 
                                    value="text", command=self.on_watermark_type_changed)
         text_radio.pack(anchor=tk.W)
         
-        image_radio = tk.Radiobutton(type_frame, text="图片水印", variable=self.watermark_type, 
+        image_radio = tk.Radiobutton(type_frame, text="图片水印", variable=self.watermark_type_var, 
                                     value="image", command=self.on_watermark_type_changed)
         image_radio.pack(anchor=tk.W)
         
-        exif_radio = tk.Radiobutton(type_frame, text="EXIF时间水印", variable=self.watermark_type, 
+        exif_radio = tk.Radiobutton(type_frame, text="EXIF时间水印", variable=self.watermark_type_var, 
                                    value="exif", command=self.on_watermark_type_changed)
         exif_radio.pack(anchor=tk.W)
         
@@ -273,6 +281,107 @@ class MainWindow:
         outline_check = tk.Checkbutton(effect_frame, text="描边效果", variable=self.outline_var,
                                       command=self.on_outline_changed)
         outline_check.pack(anchor=tk.W)
+        
+        # 图片水印设置
+        self.image_frame = tk.LabelFrame(scrollable_frame, text="图片设置", padx=5, pady=5)
+        self.image_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # 图片选择
+        image_select_frame = tk.Frame(self.image_frame)
+        image_select_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(image_select_frame, text="水印图片:").pack(side=tk.LEFT)
+        self.image_path_var = tk.StringVar(value="")
+        image_path_entry = tk.Entry(image_select_frame, textvariable=self.image_path_var, 
+                                   width=20, state="readonly")
+        image_path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+        select_image_btn = tk.Button(image_select_frame, text="选择", 
+                                    command=self.select_watermark_image, width=6)
+        select_image_btn.pack(side=tk.RIGHT)
+        
+        # 图片缩放
+        scale_frame = tk.Frame(self.image_frame)
+        scale_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(scale_frame, text="缩放比例:").pack(side=tk.LEFT)
+        self.image_scale_var = tk.DoubleVar(value=self.current_image_watermark.scale_factor)
+        image_scale = tk.Scale(scale_frame, from_=0.1, to=1.0, resolution=0.05, orient=tk.HORIZONTAL,
+                              variable=self.image_scale_var, command=self.on_image_scale_changed)
+        image_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # 图片透明度
+        image_transparency_frame = tk.Frame(self.image_frame)
+        image_transparency_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(image_transparency_frame, text="透明度:").pack(side=tk.LEFT)
+        self.image_transparency_var = tk.IntVar(value=self.current_image_watermark.transparency)
+        image_transparency_scale = tk.Scale(image_transparency_frame, from_=0, to=100, orient=tk.HORIZONTAL,
+                                           variable=self.image_transparency_var, command=self.on_image_transparency_changed)
+        image_transparency_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # 保持宽高比
+        self.maintain_aspect_var = tk.BooleanVar(value=self.current_image_watermark.maintain_aspect_ratio)
+        aspect_check = tk.Checkbutton(self.image_frame, text="保持宽高比", variable=self.maintain_aspect_var,
+                                     command=self.on_maintain_aspect_changed)
+        aspect_check.pack(anchor=tk.W)
+        
+        # EXIF水印设置
+        self.exif_frame = tk.LabelFrame(scrollable_frame, text="EXIF设置", padx=5, pady=5)
+        self.exif_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # 日期格式
+        date_format_frame = tk.Frame(self.exif_frame)
+        date_format_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(date_format_frame, text="日期格式:").pack(side=tk.LEFT)
+        self.date_format_var = tk.StringVar(value=self.current_exif_watermark.date_format)
+        date_format_combo = ttk.Combobox(date_format_frame, textvariable=self.date_format_var, 
+                                        values=('%Y-%m-%d', '%Y年%m月%d日', '%m/%d/%Y', '%d-%m-%Y'),
+                                        width=15, state="readonly")
+        date_format_combo.pack(side=tk.LEFT, padx=(5, 0))
+        date_format_combo.bind('<<ComboboxSelected>>', self.on_exif_date_format_changed)
+        
+        # 前缀后缀
+        prefix_frame = tk.Frame(self.exif_frame)
+        prefix_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(prefix_frame, text="前缀:").pack(side=tk.LEFT)
+        self.exif_prefix_var = tk.StringVar(value=self.current_exif_watermark.prefix_text)
+        prefix_entry = tk.Entry(prefix_frame, textvariable=self.exif_prefix_var, width=12)
+        prefix_entry.pack(side=tk.LEFT, padx=(5, 5))
+        prefix_entry.bind('<KeyRelease>', self.on_exif_prefix_changed)
+        
+        tk.Label(prefix_frame, text="后缀:").pack(side=tk.LEFT)
+        self.exif_suffix_var = tk.StringVar(value=self.current_exif_watermark.suffix_text)
+        suffix_entry = tk.Entry(prefix_frame, textvariable=self.exif_suffix_var, width=12)
+        suffix_entry.pack(side=tk.LEFT, padx=(5, 0))
+        suffix_entry.bind('<KeyRelease>', self.on_exif_suffix_changed)
+        
+        # EXIF字体大小
+        exif_font_frame = tk.Frame(self.exif_frame)
+        exif_font_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(exif_font_frame, text="字体大小:").pack(side=tk.LEFT)
+        self.exif_font_size_var = tk.IntVar(value=self.current_exif_watermark.font_size)
+        exif_font_scale = tk.Scale(exif_font_frame, from_=8, to=100, orient=tk.HORIZONTAL,
+                                  variable=self.exif_font_size_var, command=self.on_exif_font_size_changed)
+        exif_font_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # EXIF透明度
+        exif_transparency_frame = tk.Frame(self.exif_frame)
+        exif_transparency_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(exif_transparency_frame, text="透明度:").pack(side=tk.LEFT)
+        self.exif_transparency_var = tk.IntVar(value=self.current_exif_watermark.transparency)
+        exif_transparency_scale = tk.Scale(exif_transparency_frame, from_=0, to=100, orient=tk.HORIZONTAL,
+                                          variable=self.exif_transparency_var, command=self.on_exif_transparency_changed)
+        exif_transparency_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # 备用选项
+        self.exif_fallback_var = tk.BooleanVar(value=self.current_exif_watermark.fallback_to_file_time)
+        fallback_check = tk.Checkbutton(self.exif_frame, text="无EXIF时使用文件时间", 
+                                       variable=self.exif_fallback_var, command=self.on_exif_fallback_changed)
+        fallback_check.pack(anchor=tk.W)
         
         # 导出设置
         export_frame = tk.LabelFrame(scrollable_frame, text="导出设置", padx=5, pady=5)
@@ -403,8 +512,15 @@ class MainWindow:
                 image_x = max(0, min(image_x, img_width))
                 image_y = max(0, min(image_y, img_height))
                 
-                self.current_watermark.set_custom_position((image_x, image_y))
-                print(f"Watermark position updated: canvas({position[0]}, {position[1]}) -> image({image_x}, {image_y}) [offset: ({offset_x}, {offset_y}), scale: {scale_factor:.3f}]")
+                # 根据当前水印类型设置位置
+                if self.watermark_type == "text":
+                    self.current_watermark.set_custom_position((image_x, image_y))
+                elif self.watermark_type == "image":
+                    self.current_image_watermark.set_custom_position((image_x, image_y))
+                elif self.watermark_type == "exif":
+                    self.current_exif_watermark.set_custom_position((image_x, image_y))
+                
+                print(f"Watermark position updated ({self.watermark_type}): canvas({position[0]}, {position[1]}) -> image({image_x}, {image_y}) [offset: ({offset_x}, {offset_y}), scale: {scale_factor:.3f}]")
                 # 不立即更新预览，避免循环
     
     def on_files_dropped(self, file_paths):
@@ -552,11 +668,16 @@ class MainWindow:
                     
                     print(f"Loaded image: {image.size}, mode: {image.mode}")
                     
-                    # 应用水印
-                    watermarked_image = self.current_watermark.apply_to_image(image)
+                    # 应用当前选择的水印类型
+                    if self.watermark_type == "exif":
+                        # EXIF水印需要图片路径
+                        watermarked_image = self.current_exif_watermark.apply_to_image_with_path(image, image_data['path'])
+                    else:
+                        watermarked_image = self.apply_current_watermark(image)
+                    
                     if not watermarked_image:
                         print("Failed to apply watermark")
-                        continue
+                        watermarked_image = image  # 如果应用失败，使用原图
                     
                     print(f"Applied watermark: {watermarked_image.size}, mode: {watermarked_image.mode}")
                     
@@ -666,7 +787,7 @@ class MainWindow:
                 return
             
             # 应用水印
-            watermarked_image = self.current_watermark.apply_to_image(image)
+            watermarked_image = self.apply_current_watermark(image)
             if not watermarked_image:
                 watermarked_image = image
             
@@ -675,9 +796,28 @@ class MainWindow:
             
             # 显示水印拖拽预览（只在非拖拽状态下）
             if self.watermark_drag_handler and not self._watermark_dragging:
-                # 计算画布上的水印位置
-                canvas_pos = self.calculate_canvas_position(image.size, self.current_watermark)
-                self.watermark_drag_handler.show_watermark(canvas_pos, self.current_watermark.text)
+                # 计算画布上的水印位置并显示相应类型的水印
+                if self.watermark_type == "text":
+                    canvas_pos = self.calculate_canvas_position(image.size, self.current_watermark)
+                    watermark_text = self.current_watermark.text if self.current_watermark.text else "Sample Text"
+                    self.watermark_drag_handler.show_watermark(canvas_pos, watermark_text, "text")
+                elif self.watermark_type == "image":
+                    canvas_pos = self.calculate_canvas_position(image.size, self.current_image_watermark)
+                    if self.current_image_watermark.watermark_path:
+                        watermark_name = os.path.basename(self.current_image_watermark.watermark_path)
+                    else:
+                        watermark_name = "Select Image"
+                    self.watermark_drag_handler.show_watermark(canvas_pos, watermark_name, "image")
+                    print(f"Showing image watermark: {watermark_name} at {canvas_pos}")
+                elif self.watermark_type == "exif":
+                    canvas_pos = self.calculate_canvas_position(image.size, self.current_exif_watermark)
+                    current_image_data = self.image_list_manager.get_current_image()
+                    if current_image_data and current_image_data.get('path'):
+                        exif_text = self.current_exif_watermark.generate_watermark_text(current_image_data['path'])
+                    else:
+                        exif_text = "2024-01-15"
+                    self.watermark_drag_handler.show_watermark(canvas_pos, exif_text, "exif")
+                    print(f"Showing EXIF watermark: {exif_text} at {canvas_pos}")
             
             # 计算显示尺寸
             canvas_width = self.preview_widget.winfo_width()
@@ -728,11 +868,47 @@ class MainWindow:
             print(f"Update preview failed: {e}")
             self._preview_update_pending = False
     
+    def apply_current_watermark(self, image: Image.Image) -> Optional[Image.Image]:
+        """应用当前选择的水印类型"""
+        try:
+            if self.watermark_type == "text":
+                return self.current_watermark.apply_to_image(image)
+            elif self.watermark_type == "image":
+                return self.current_image_watermark.apply_to_image(image)
+            elif self.watermark_type == "exif":
+                # EXIF水印需要图片路径
+                current_image = self.image_list_manager.get_current_image()
+                if current_image and current_image.get('path'):
+                    return self.current_exif_watermark.apply_to_image_with_path(image, current_image['path'])
+                else:
+                    return image
+            else:
+                return image
+        except Exception as e:
+            print(f"Apply watermark failed: {e}")
+            return image
+    
     # 水印设置相关方法
     def on_watermark_type_changed(self):
         """水印类型变化"""
-        # 这里可以添加不同类型水印的UI切换逻辑
-        pass
+        watermark_type = self.watermark_type_var.get()
+        self.watermark_type = watermark_type
+        
+        # 显示/隐藏相应的设置面板
+        if watermark_type == "text":
+            self.text_frame.pack(fill=tk.X, padx=5, pady=5)
+            self.image_frame.pack_forget()
+            self.exif_frame.pack_forget()
+        elif watermark_type == "image":
+            self.text_frame.pack_forget()
+            self.image_frame.pack(fill=tk.X, padx=5, pady=5)
+            self.exif_frame.pack_forget()
+        else:  # exif
+            self.text_frame.pack_forget()
+            self.image_frame.pack_forget()
+            self.exif_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.update_preview()
     
     def on_text_changed(self, event=None):
         """文本变化"""
@@ -773,16 +949,231 @@ class MainWindow:
         self.current_watermark.set_outline(self.outline_var.get())
         self.update_preview()
     
+    def select_watermark_image(self):
+        """选择水印图片"""
+        from tkinter import filedialog
+        file_path = filedialog.askopenfilename(
+            title="选择水印图片",
+            filetypes=[
+                ("图片文件", "*.png *.jpg *.jpeg *.bmp *.tiff"),
+                ("PNG文件", "*.png"),
+                ("JPEG文件", "*.jpg *.jpeg"),
+                ("所有文件", "*.*")
+            ]
+        )
+        
+        if file_path:
+            if self.current_image_watermark.load_watermark_image(file_path):
+                self.image_path_var.set(os.path.basename(file_path))
+                self.update_preview()
+            else:
+                messagebox.showerror("错误", "无法加载图片，请选择有效的图片文件")
+    
+    def on_image_scale_changed(self, value):
+        """图片缩放变化"""
+        self.current_image_watermark.set_scale_factor(float(value))
+        self.update_preview()
+    
+    def on_image_transparency_changed(self, value):
+        """图片透明度变化"""
+        self.current_image_watermark.set_transparency(int(float(value)))
+        self.update_preview()
+    
+    def on_maintain_aspect_changed(self):
+        """保持宽高比变化"""
+        self.current_image_watermark.set_maintain_aspect_ratio(self.maintain_aspect_var.get())
+        self.update_preview()
+    
+    # EXIF水印事件处理方法
+    def on_exif_date_format_changed(self, event=None):
+        """EXIF日期格式变化"""
+        self.current_exif_watermark.set_date_format(self.date_format_var.get())
+        self.update_preview()
+    
+    def on_exif_prefix_changed(self, event=None):
+        """EXIF前缀变化"""
+        self.current_exif_watermark.set_prefix_suffix(
+            self.exif_prefix_var.get(),
+            self.current_exif_watermark.suffix_text
+        )
+        self.update_preview()
+    
+    def on_exif_suffix_changed(self, event=None):
+        """EXIF后缀变化"""
+        self.current_exif_watermark.set_prefix_suffix(
+            self.current_exif_watermark.prefix_text,
+            self.exif_suffix_var.get()
+        )
+        self.update_preview()
+    
+    def on_exif_font_size_changed(self, value):
+        """EXIF字体大小变化"""
+        self.current_exif_watermark.set_font_size(int(float(value)))
+        self.update_preview()
+    
+    def on_exif_transparency_changed(self, value):
+        """EXIF透明度变化"""
+        self.current_exif_watermark.set_transparency(int(float(value)))
+        self.update_preview()
+    
+    def on_exif_fallback_changed(self):
+        """EXIF备用选项变化"""
+        self.current_exif_watermark.fallback_to_file_time = self.exif_fallback_var.get()
+        self.update_preview()
+    
+    # 模板管理相关方法
+    def save_current_template(self):
+        """保存当前水印设置为模板"""
+        try:
+            dialog = TemplateDialog(self.parent, self.template_manager, mode="save")
+            
+            # 设置获取当前水印设置的回调
+            def get_current_watermark_callback(name, description):
+                template = WatermarkTemplate(name, description)
+                template.watermark_type = self.watermark_type
+                template.text_settings = self.current_watermark.get_watermark_info()
+                template.image_settings = self.current_image_watermark.get_watermark_info()
+                template.exif_settings = self.current_exif_watermark.get_watermark_info()
+                return template
+            
+            dialog.get_current_watermark_callback = get_current_watermark_callback
+            
+            result = dialog.show()
+            if result:
+                messagebox.showinfo("成功", f"模板 '{result.name}' 保存成功！\n\n模板包含以下设置：\n- 水印类型: {self.watermark_type}\n- 模板文件: templates/{result.name}.json")
+                self.update_status(f"模板 '{result.name}' 已保存")
+                
+        except Exception as e:
+            messagebox.showerror("错误", f"保存模板失败: {e}")
+    
+    def load_template(self):
+        """加载水印模板"""
+        try:
+            dialog = TemplateDialog(self.parent, self.template_manager, mode="load")
+            result = dialog.show()
+            
+            if result:
+                self.apply_template(result)
+                messagebox.showinfo("成功", f"模板 '{result.name}' 加载成功！\n\n已应用以下设置：\n- 水印类型: {result.watermark_type}")
+                self.update_status(f"模板 '{result.name}' 已加载")
+                
+        except Exception as e:
+            messagebox.showerror("错误", f"加载模板失败: {e}")
+    
+    def apply_template(self, template: WatermarkTemplate):
+        """应用模板设置"""
+        try:
+            # 设置水印类型
+            self.watermark_type = template.watermark_type
+            self.watermark_type_var.set(template.watermark_type)
+            
+            # 应用文本水印设置
+            if template.text_settings:
+                self.current_watermark.load_from_dict(template.text_settings)
+                self.update_text_ui_from_watermark()
+            
+            # 应用图片水印设置
+            if template.image_settings:
+                self.current_image_watermark.load_from_dict(template.image_settings)
+                self.update_image_ui_from_watermark()
+            
+            # 应用EXIF水印设置
+            if template.exif_settings:
+                self.current_exif_watermark.load_from_dict(template.exif_settings)
+                self.update_exif_ui_from_watermark()
+            
+            # 更新UI显示
+            self.on_watermark_type_changed()
+            
+        except Exception as e:
+            print(f"Apply template failed: {e}")
+    
+    def update_text_ui_from_watermark(self):
+        """从水印设置更新文本UI"""
+        try:
+            if hasattr(self, 'text_entry'):
+                self.text_entry.delete(0, tk.END)
+                self.text_entry.insert(0, self.current_watermark.text)
+            
+            if hasattr(self, 'font_size_var'):
+                self.font_size_var.set(self.current_watermark.font_size)
+            
+            if hasattr(self, 'color_var'):
+                self.color_var.set(self.current_watermark.color)
+            
+            if hasattr(self, 'transparency_var'):
+                self.transparency_var.set(self.current_watermark.transparency)
+            
+            if hasattr(self, 'shadow_var'):
+                self.shadow_var.set(self.current_watermark.shadow)
+            
+            if hasattr(self, 'outline_var'):
+                self.outline_var.set(self.current_watermark.outline)
+                
+        except Exception as e:
+            print(f"Update text UI failed: {e}")
+    
+    def update_image_ui_from_watermark(self):
+        """从水印设置更新图片UI"""
+        try:
+            if hasattr(self, 'image_path_var') and self.current_image_watermark.watermark_path:
+                self.image_path_var.set(os.path.basename(self.current_image_watermark.watermark_path))
+            
+            if hasattr(self, 'image_scale_var'):
+                self.image_scale_var.set(self.current_image_watermark.scale_factor)
+            
+            if hasattr(self, 'image_transparency_var'):
+                self.image_transparency_var.set(self.current_image_watermark.transparency)
+            
+            if hasattr(self, 'maintain_aspect_var'):
+                self.maintain_aspect_var.set(self.current_image_watermark.maintain_aspect_ratio)
+                
+        except Exception as e:
+            print(f"Update image UI failed: {e}")
+    
+    def update_exif_ui_from_watermark(self):
+        """从水印设置更新EXIF UI"""
+        try:
+            if hasattr(self, 'date_format_var'):
+                self.date_format_var.set(self.current_exif_watermark.date_format)
+            
+            if hasattr(self, 'exif_prefix_var'):
+                self.exif_prefix_var.set(self.current_exif_watermark.prefix_text)
+            
+            if hasattr(self, 'exif_suffix_var'):
+                self.exif_suffix_var.set(self.current_exif_watermark.suffix_text)
+            
+            if hasattr(self, 'exif_font_size_var'):
+                self.exif_font_size_var.set(self.current_exif_watermark.font_size)
+            
+            if hasattr(self, 'exif_transparency_var'):
+                self.exif_transparency_var.set(self.current_exif_watermark.transparency)
+            
+            if hasattr(self, 'exif_fallback_var'):
+                self.exif_fallback_var.set(self.current_exif_watermark.fallback_to_file_time)
+                
+        except Exception as e:
+            print(f"Update EXIF UI failed: {e}")
+    
+    def manage_templates(self):
+        """管理模板"""
+        try:
+            dialog = TemplateDialog(self.parent, self.template_manager, mode="manage")
+            dialog.show()
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"管理模板失败: {e}")
+    
     def on_drag_toggle(self):
         """拖拽开关变化"""
         if self.watermark_drag_handler:
             if self.drag_enabled_var.get():
                 self.watermark_drag_handler.setup_events()
             else:
-                self.canvas.unbind('<Button-1>')
-                self.canvas.unbind('<B1-Motion>')
-                self.canvas.unbind('<ButtonRelease-1>')
-                self.canvas.unbind('<Motion>')
+                self.preview_widget.unbind('<Button-1>')
+                self.preview_widget.unbind('<B1-Motion>')
+                self.preview_widget.unbind('<ButtonRelease-1>')
+                self.preview_widget.unbind('<Motion>')
     
     def calculate_scale_factor(self):
         """计算缩放因子"""

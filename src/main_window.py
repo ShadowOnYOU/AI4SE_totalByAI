@@ -258,7 +258,7 @@ class MainWindow:
         position_combo = ttk.Combobox(position_frame, textvariable=self.position_var, width=20)
         position_combo['values'] = ('top_left', 'top_center', 'top_right',
                                   'center_left', 'center', 'center_right',
-                                  'bottom_left', 'bottom_center', 'bottom_right')
+                                  'bottom_left', 'bottom_center', 'bottom_right', 'custom')
         position_combo.pack(fill=tk.X, pady=(0, 5))
         position_combo.bind('<<ComboboxSelected>>', self.on_position_changed)
         
@@ -325,6 +325,19 @@ class MainWindow:
                                      command=self.on_maintain_aspect_changed)
         aspect_check.pack(anchor=tk.W)
         
+        # 图片水印位置设置
+        image_position_frame = tk.Frame(self.image_frame)
+        image_position_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        tk.Label(image_position_frame, text="位置:").pack(side=tk.LEFT)
+        self.image_position_var = tk.StringVar(value=self.current_image_watermark.position)
+        image_position_combo = ttk.Combobox(image_position_frame, textvariable=self.image_position_var, width=15)
+        image_position_combo['values'] = ('top_left', 'top_center', 'top_right',
+                                         'center_left', 'center', 'center_right',
+                                         'bottom_left', 'bottom_center', 'bottom_right', 'custom')
+        image_position_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        image_position_combo.bind('<<ComboboxSelected>>', self.on_image_position_changed)
+        
         # EXIF水印设置
         self.exif_frame = tk.LabelFrame(scrollable_frame, text="EXIF设置", padx=5, pady=5)
         self.exif_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -382,6 +395,19 @@ class MainWindow:
         fallback_check = tk.Checkbutton(self.exif_frame, text="无EXIF时使用文件时间", 
                                        variable=self.exif_fallback_var, command=self.on_exif_fallback_changed)
         fallback_check.pack(anchor=tk.W)
+        
+        # EXIF水印位置设置
+        exif_position_frame = tk.Frame(self.exif_frame)
+        exif_position_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        tk.Label(exif_position_frame, text="位置:").pack(side=tk.LEFT)
+        self.exif_position_var = tk.StringVar(value=self.current_exif_watermark.position)
+        exif_position_combo = ttk.Combobox(exif_position_frame, textvariable=self.exif_position_var, width=15)
+        exif_position_combo['values'] = ('top_left', 'top_center', 'top_right',
+                                        'center_left', 'center', 'center_right',
+                                        'bottom_left', 'bottom_center', 'bottom_right', 'custom')
+        exif_position_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        exif_position_combo.bind('<<ComboboxSelected>>', self.on_exif_position_changed)
         
         # 导出设置
         export_frame = tk.LabelFrame(scrollable_frame, text="导出设置", padx=5, pady=5)
@@ -515,10 +541,19 @@ class MainWindow:
                 # 根据当前水印类型设置位置
                 if self.watermark_type == "text":
                     self.current_watermark.set_custom_position((image_x, image_y))
+                    # 清除预设位置选择，显示为自定义
+                    if hasattr(self, 'position_var'):
+                        self.position_var.set("custom")
                 elif self.watermark_type == "image":
                     self.current_image_watermark.set_custom_position((image_x, image_y))
+                    # 清除预设位置选择，显示为自定义
+                    if hasattr(self, 'image_position_var'):
+                        self.image_position_var.set("custom")
                 elif self.watermark_type == "exif":
                     self.current_exif_watermark.set_custom_position((image_x, image_y))
+                    # 清除预设位置选择，显示为自定义
+                    if hasattr(self, 'exif_position_var'):
+                        self.exif_position_var.set("custom")
                 
                 print(f"Watermark position updated ({self.watermark_type}): canvas({position[0]}, {position[1]}) -> image({image_x}, {image_y}) [offset: ({offset_x}, {offset_y}), scale: {scale_factor:.3f}]")
                 # 不立即更新预览，避免循环
@@ -894,6 +929,8 @@ class MainWindow:
         watermark_type = self.watermark_type_var.get()
         self.watermark_type = watermark_type
         
+        print(f"Watermark type changed to: {watermark_type}")
+        
         # 显示/隐藏相应的设置面板
         if watermark_type == "text":
             self.text_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -908,7 +945,53 @@ class MainWindow:
             self.image_frame.pack_forget()
             self.exif_frame.pack(fill=tk.X, padx=5, pady=5)
         
+        # 立即更新预览以显示新的水印类型
         self.update_preview()
+        
+        # 强制刷新拖拽显示
+        if hasattr(self, 'watermark_drag_handler') and self.watermark_drag_handler:
+            self.parent.after(100, self._force_refresh_drag_display)
+    
+    def _force_refresh_drag_display(self):
+        """强制刷新拖拽显示"""
+        try:
+            current_image = self.image_list_manager.get_current_image()
+            if not current_image:
+                return
+                
+            image = self.image_list_manager.load_image(current_image['path'])
+            if not image or not hasattr(self, 'current_image_size'):
+                return
+            
+            print(f"Force refreshing drag display for watermark type: {self.watermark_type}")
+            
+            # 根据当前水印类型显示拖拽预览
+            if self.watermark_type == "text":
+                canvas_pos = self.calculate_canvas_position(image.size, self.current_watermark)
+                watermark_text = self.current_watermark.text if self.current_watermark.text else "Sample Text"
+                self.watermark_drag_handler.show_watermark(canvas_pos, watermark_text, "text")
+                print(f"Refreshed text watermark at {canvas_pos}")
+                
+            elif self.watermark_type == "image":
+                canvas_pos = self.calculate_canvas_position(image.size, self.current_image_watermark)
+                if self.current_image_watermark.watermark_path:
+                    watermark_name = os.path.basename(self.current_image_watermark.watermark_path)
+                else:
+                    watermark_name = "Select Image"
+                self.watermark_drag_handler.show_watermark(canvas_pos, watermark_name, "image")
+                print(f"Refreshed image watermark: {watermark_name} at {canvas_pos}")
+                
+            elif self.watermark_type == "exif":
+                canvas_pos = self.calculate_canvas_position(image.size, self.current_exif_watermark)
+                if current_image and current_image.get('path'):
+                    exif_text = self.current_exif_watermark.generate_watermark_text(current_image['path'])
+                else:
+                    exif_text = "2024-01-15"
+                self.watermark_drag_handler.show_watermark(canvas_pos, exif_text, "exif")
+                print(f"Refreshed EXIF watermark: {exif_text} at {canvas_pos}")
+                
+        except Exception as e:
+            print(f"Force refresh drag display failed: {e}")
     
     def on_text_changed(self, event=None):
         """文本变化"""
@@ -936,8 +1019,12 @@ class MainWindow:
     
     def on_position_changed(self, event=None):
         """位置变化"""
-        self.current_watermark.set_position(self.position_var.get())
+        position = self.position_var.get()
+        if position != "custom":  # 只有非自定义位置才设置预设位置
+            self.current_watermark.set_position(position)
         self.update_preview()
+        if self.watermark_type == "text":
+            self._schedule_drag_refresh()
     
     def on_shadow_changed(self):
         """阴影效果变化"""
@@ -966,6 +1053,9 @@ class MainWindow:
             if self.current_image_watermark.load_watermark_image(file_path):
                 self.image_path_var.set(os.path.basename(file_path))
                 self.update_preview()
+                # 立即更新拖拽显示
+                if hasattr(self, 'watermark_drag_handler') and self.watermark_drag_handler and self.watermark_type == "image":
+                    self.parent.after(50, self._force_refresh_drag_display)
             else:
                 messagebox.showerror("错误", "无法加载图片，请选择有效的图片文件")
     
@@ -973,22 +1063,44 @@ class MainWindow:
         """图片缩放变化"""
         self.current_image_watermark.set_scale_factor(float(value))
         self.update_preview()
+        if self.watermark_type == "image":
+            self._schedule_drag_refresh()
     
     def on_image_transparency_changed(self, value):
         """图片透明度变化"""
         self.current_image_watermark.set_transparency(int(float(value)))
         self.update_preview()
+        if self.watermark_type == "image":
+            self._schedule_drag_refresh()
     
     def on_maintain_aspect_changed(self):
         """保持宽高比变化"""
         self.current_image_watermark.set_maintain_aspect_ratio(self.maintain_aspect_var.get())
         self.update_preview()
+        if self.watermark_type == "image":
+            self._schedule_drag_refresh()
+    
+    def on_image_position_changed(self, event=None):
+        """图片水印位置变化"""
+        position = self.image_position_var.get()
+        if position != "custom":  # 只有非自定义位置才设置预设位置
+            self.current_image_watermark.set_position(position)
+        self.update_preview()
+        if self.watermark_type == "image":
+            self._schedule_drag_refresh()
+    
+    def _schedule_drag_refresh(self):
+        """调度拖拽显示刷新"""
+        if hasattr(self, 'watermark_drag_handler') and self.watermark_drag_handler:
+            self.parent.after(50, self._force_refresh_drag_display)
     
     # EXIF水印事件处理方法
     def on_exif_date_format_changed(self, event=None):
         """EXIF日期格式变化"""
         self.current_exif_watermark.set_date_format(self.date_format_var.get())
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     def on_exif_prefix_changed(self, event=None):
         """EXIF前缀变化"""
@@ -997,6 +1109,8 @@ class MainWindow:
             self.current_exif_watermark.suffix_text
         )
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     def on_exif_suffix_changed(self, event=None):
         """EXIF后缀变化"""
@@ -1005,21 +1119,38 @@ class MainWindow:
             self.exif_suffix_var.get()
         )
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     def on_exif_font_size_changed(self, value):
         """EXIF字体大小变化"""
         self.current_exif_watermark.set_font_size(int(float(value)))
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     def on_exif_transparency_changed(self, value):
         """EXIF透明度变化"""
         self.current_exif_watermark.set_transparency(int(float(value)))
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     def on_exif_fallback_changed(self):
         """EXIF备用选项变化"""
         self.current_exif_watermark.fallback_to_file_time = self.exif_fallback_var.get()
         self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
+    
+    def on_exif_position_changed(self, event=None):
+        """EXIF水印位置变化"""
+        position = self.exif_position_var.get()
+        if position != "custom":  # 只有非自定义位置才设置预设位置
+            self.current_exif_watermark.set_position(position)
+        self.update_preview()
+        if self.watermark_type == "exif":
+            self._schedule_drag_refresh()
     
     # 模板管理相关方法
     def save_current_template(self):
@@ -1127,6 +1258,9 @@ class MainWindow:
             
             if hasattr(self, 'maintain_aspect_var'):
                 self.maintain_aspect_var.set(self.current_image_watermark.maintain_aspect_ratio)
+            
+            if hasattr(self, 'image_position_var'):
+                self.image_position_var.set(self.current_image_watermark.position)
                 
         except Exception as e:
             print(f"Update image UI failed: {e}")
@@ -1151,6 +1285,9 @@ class MainWindow:
             
             if hasattr(self, 'exif_fallback_var'):
                 self.exif_fallback_var.set(self.current_exif_watermark.fallback_to_file_time)
+            
+            if hasattr(self, 'exif_position_var'):
+                self.exif_position_var.set(self.current_exif_watermark.position)
                 
         except Exception as e:
             print(f"Update EXIF UI failed: {e}")

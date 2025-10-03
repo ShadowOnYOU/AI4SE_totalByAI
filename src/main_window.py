@@ -265,6 +265,19 @@ class MainWindow:
         position_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         position_combo.bind('<<ComboboxSelected>>', self.on_position_changed)
         
+        # 旋转设置
+        rotation_frame = tk.Frame(self.text_frame)
+        rotation_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        tk.Label(rotation_frame, text="旋转角度:").pack(side=tk.LEFT)
+        self.rotation_var = tk.IntVar(value=0)
+        self.rotation_label = tk.Label(rotation_frame, text="0°")
+        self.rotation_label.pack(side=tk.RIGHT)
+        
+        rotation_scale = tk.Scale(rotation_frame, from_=-180, to=180, orient=tk.HORIZONTAL,
+                                variable=self.rotation_var, command=self.on_rotation_changed)
+        rotation_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+        
         # 效果设置
         effect_frame = tk.LabelFrame(scrollable_frame, text="效果设置", padx=5, pady=5)
         effect_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -419,6 +432,7 @@ class MainWindow:
         format_combo = ttk.Combobox(format_frame, textvariable=self.output_format, width=10)
         format_combo['values'] = ('jpg', 'png')
         format_combo.pack(side=tk.LEFT, padx=(5, 0))
+        format_combo.bind('<<ComboboxSelected>>', lambda e: self.update_naming_example())
         
         # 输出文件夹
         folder_frame = tk.Frame(export_frame)
@@ -430,6 +444,117 @@ class MainWindow:
         folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         folder_btn = tk.Button(folder_frame, text="选择", command=self.choose_output_folder, width=6)
         folder_btn.pack(side=tk.LEFT)
+        
+        # 文件命名规则
+        naming_frame = tk.LabelFrame(export_frame, text="文件命名规则")
+        naming_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        # 命名选项
+        naming_options_frame = tk.Frame(naming_frame)
+        naming_options_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        self.naming_option = tk.StringVar(value="original")
+        tk.Radiobutton(naming_options_frame, text="保留原文件名", 
+                      variable=self.naming_option, value="original",
+                      command=self.on_naming_option_changed).pack(anchor=tk.W)
+        tk.Radiobutton(naming_options_frame, text="添加前缀", 
+                      variable=self.naming_option, value="prefix",
+                      command=self.on_naming_option_changed).pack(anchor=tk.W)
+        tk.Radiobutton(naming_options_frame, text="添加后缀", 
+                      variable=self.naming_option, value="suffix",
+                      command=self.on_naming_option_changed).pack(anchor=tk.W)
+        tk.Radiobutton(naming_options_frame, text="前缀+后缀", 
+                      variable=self.naming_option, value="both",
+                      command=self.on_naming_option_changed).pack(anchor=tk.W)
+        
+        # 前缀设置
+        prefix_frame = tk.Frame(naming_frame)
+        prefix_frame.pack(fill=tk.X, pady=(0, 3))
+        
+        tk.Label(prefix_frame, text="前缀:").pack(side=tk.LEFT)
+        self.prefix_var = tk.StringVar(value="wm_")
+        self.prefix_entry = tk.Entry(prefix_frame, textvariable=self.prefix_var, width=15)
+        self.prefix_entry.pack(side=tk.LEFT, padx=(5, 0))
+        self.prefix_var.trace('w', lambda *args: self.update_naming_example())
+        
+        # 后缀设置
+        suffix_frame = tk.Frame(naming_frame)
+        suffix_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(suffix_frame, text="后缀:").pack(side=tk.LEFT)
+        self.suffix_var = tk.StringVar(value="_watermarked")
+        self.suffix_entry = tk.Entry(suffix_frame, textvariable=self.suffix_var, width=15)
+        self.suffix_entry.pack(side=tk.LEFT, padx=(5, 0))
+        self.suffix_var.trace('w', lambda *args: self.update_naming_example())
+        
+        # 预览示例
+        self.naming_example_label = tk.Label(naming_frame, text="", fg="gray", font=("Arial", 9))
+        self.naming_example_label.pack(pady=(5, 0))
+        
+        # 初始化命名选项状态
+        self.on_naming_option_changed()
+        
+        # JPEG质量设置
+        quality_frame = tk.LabelFrame(export_frame, text="JPEG质量设置")
+        quality_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        quality_label_frame = tk.Frame(quality_frame)
+        quality_label_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(quality_label_frame, text="压缩质量 (0-100):").pack(side=tk.LEFT)
+        self.quality_var = tk.IntVar(value=95)
+        self.quality_label = tk.Label(quality_label_frame, text="95")
+        self.quality_label.pack(side=tk.RIGHT)
+        
+        self.quality_scale = tk.Scale(quality_frame, from_=0, to=100, orient=tk.HORIZONTAL, 
+                                     variable=self.quality_var, command=self.on_quality_changed)
+        self.quality_scale.pack(fill=tk.X, padx=5, pady=(0, 5))
+        
+        # 图片尺寸调整设置
+        resize_frame = tk.LabelFrame(export_frame, text="图片尺寸调整")
+        resize_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        # 尺寸调整选项
+        resize_option_frame = tk.Frame(resize_frame)
+        resize_option_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        self.resize_option = tk.StringVar(value="none")
+        tk.Radiobutton(resize_option_frame, text="保持原尺寸", 
+                      variable=self.resize_option, value="none").pack(anchor=tk.W)
+        tk.Radiobutton(resize_option_frame, text="按宽度调整", 
+                      variable=self.resize_option, value="width").pack(anchor=tk.W)
+        tk.Radiobutton(resize_option_frame, text="按高度调整", 
+                      variable=self.resize_option, value="height").pack(anchor=tk.W)
+        tk.Radiobutton(resize_option_frame, text="按比例缩放", 
+                      variable=self.resize_option, value="percent").pack(anchor=tk.W)
+        
+        # 尺寸参数设置
+        size_params_frame = tk.Frame(resize_frame)
+        size_params_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # 宽度设置
+        width_frame = tk.Frame(size_params_frame)
+        width_frame.pack(fill=tk.X, pady=(0, 2))
+        tk.Label(width_frame, text="宽度(px):").pack(side=tk.LEFT)
+        self.width_var = tk.StringVar(value="800")
+        width_entry = tk.Entry(width_frame, textvariable=self.width_var, width=8)
+        width_entry.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # 高度设置
+        height_frame = tk.Frame(size_params_frame)
+        height_frame.pack(fill=tk.X, pady=(0, 2))
+        tk.Label(height_frame, text="高度(px):").pack(side=tk.LEFT)
+        self.height_var = tk.StringVar(value="600")
+        height_entry = tk.Entry(height_frame, textvariable=self.height_var, width=8)
+        height_entry.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # 百分比设置
+        percent_frame = tk.Frame(size_params_frame)
+        percent_frame.pack(fill=tk.X)
+        tk.Label(percent_frame, text="缩放比例(%):").pack(side=tk.LEFT)
+        self.percent_var = tk.StringVar(value="100")
+        percent_entry = tk.Entry(percent_frame, textvariable=self.percent_var, width=8)
+        percent_entry.pack(side=tk.LEFT, padx=(5, 0))
         
         # 操作按钮
         button_frame = tk.Frame(scrollable_frame)
@@ -688,9 +813,36 @@ class MainWindow:
             
             # 设置导出参数
             self.export_manager.output_folder = self.output_folder_var.get()
+            
+            # 根据命名选项设置前缀和后缀
+            naming_option = self.naming_option.get()
+            if naming_option == "original":
+                prefix = ""
+                suffix = ""
+            elif naming_option == "prefix":
+                prefix = self.prefix_var.get()
+                suffix = ""
+            elif naming_option == "suffix":
+                prefix = ""
+                suffix = self.suffix_var.get()
+            else:  # both
+                prefix = self.prefix_var.get()
+                suffix = self.suffix_var.get()
+            
+            # 获取图片尺寸调整参数
+            resize_settings = {
+                'resize_option': self.resize_option.get(),
+                'width': int(self.width_var.get()) if self.width_var.get().isdigit() else None,
+                'height': int(self.height_var.get()) if self.height_var.get().isdigit() else None,
+                'percent': float(self.percent_var.get()) / 100 if self.percent_var.get().replace('.', '', 1).isdigit() else None
+            }
+            
             self.export_manager.update_export_settings({
                 'format': self.output_format.get(),
-                'quality': 95
+                'quality': self.quality_var.get(),
+                'filename_prefix': prefix,
+                'filename_suffix': suffix,
+                'resize_settings': resize_settings
             })
             
             print(f"Export settings: output_folder={self.export_manager.output_folder}")
@@ -1055,6 +1207,20 @@ class MainWindow:
         self.current_watermark.set_shadow(self.shadow_var.get())
         self.update_preview()
     
+    def on_rotation_changed(self, value):
+        """旋转角度变化"""
+        angle = int(value)
+        self.rotation_label.config(text=f"{angle}°")
+        # 如果TextWatermark类支持旋转，设置旋转角度
+        if hasattr(self.current_watermark, 'set_rotation'):
+            self.current_watermark.set_rotation(angle)
+            self.update_preview()
+    
+    def on_quality_changed(self, value):
+        """JPEG质量变化"""
+        quality = int(value)
+        self.quality_label.config(text=str(quality))
+    
     def on_outline_changed(self):
         """描边效果变化"""
         self.current_watermark.set_outline(self.outline_var.get())
@@ -1146,6 +1312,44 @@ class MainWindow:
         if self.watermark_type == "exif":
             self._schedule_drag_refresh()
     
+    def on_naming_option_changed(self):
+        """文件命名选项变化"""
+        option = self.naming_option.get()
+        
+        # 根据选项启用/禁用输入框
+        if option == "original":
+            self.prefix_entry.config(state="disabled")
+            self.suffix_entry.config(state="disabled")
+        elif option == "prefix":
+            self.prefix_entry.config(state="normal")
+            self.suffix_entry.config(state="disabled")
+        elif option == "suffix":
+            self.prefix_entry.config(state="disabled")
+            self.suffix_entry.config(state="normal")
+        else:  # both
+            self.prefix_entry.config(state="normal")
+            self.suffix_entry.config(state="normal")
+        
+        # 更新示例
+        self.update_naming_example()
+    
+    def update_naming_example(self):
+        """更新文件命名示例"""
+        option = self.naming_option.get()
+        prefix = self.prefix_var.get() if option in ("prefix", "both") else ""
+        suffix = self.suffix_var.get() if option in ("suffix", "both") else ""
+        
+        # 生成示例文件名
+        example_base = "示例图片"
+        example_ext = ".jpg" if self.output_format.get() == "jpg" else ".png"
+        
+        if option == "original":
+            example = f"{example_base}{example_ext}"
+        else:
+            example = f"{prefix}{example_base}{suffix}{example_ext}"
+        
+        self.naming_example_label.config(text=f"示例: {example}")
+
     def on_exif_font_size_changed(self, value):
         """EXIF字体大小变化"""
         self.current_exif_watermark.set_font_size(int(float(value)))

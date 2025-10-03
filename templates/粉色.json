@@ -1,0 +1,48 @@
+{
+  "name": "粉色",
+  "description": "粉色",
+  "created_time": "2025-09-26T14:58:26.110401",
+  "watermark_type": "text",
+  "text_settings": {
+    "text": "sghsghsghs",
+    "font_size": 77,
+    "font_family": "Arial",
+    "color": "#fb66f0",
+    "transparency": 80,
+    "position": "center_left",
+    "angle": 0,
+    "shadow": false,
+    "outline": false,
+    "shadow_color": "#000000",
+    "outline_color": "#000000",
+    "outline_width": 1
+  },
+  "image_settings": {
+    "watermark_path": null,
+    "scale_factor": 0.2,
+    "transparency": 80,
+    "position": "bottom_right",
+    "custom_position": null,
+    "maintain_aspect_ratio": true,
+    "max_size_percent": 30
+  },
+  "exif_settings": {
+    "font_size": 24,
+    "font_family": "Arial",
+    "color": "#FFFFFF",
+    "transparency": 80,
+    "position": "bottom_right",
+    "custom_position": null,
+    "angle": 0,
+    "shadow": true,
+    "outline": false,
+    "shadow_color": "#000000",
+    "outline_color": "#000000",
+    "outline_width": 1,
+    "date_format": "%Y-%m-%d",
+    "fallback_to_file_time": true,
+    "prefix_text": "",
+    "suffix_text": ""
+  },
+  "position_settings": {}
+}

@@ -279,6 +279,9 @@ class ExportManager:
             # 确保输出目录存在
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             
+            # 应用图片尺寸调整
+            watermarked_image = self._apply_resize(watermarked_image)
+            
             # 保存图片
             if self.export_settings['format'].lower() == 'jpg':
                 # JPEG格式需要转换为RGB模式
@@ -344,3 +347,38 @@ class ExportManager:
     def get_export_settings(self) -> dict:
         """获取导出设置"""
         return self.export_settings.copy()
+    
+    def _apply_resize(self, image: Image.Image) -> Image.Image:
+        """应用图片尺寸调整"""
+        try:
+            resize_settings = self.export_settings.get('resize_settings', {})
+            if not resize_settings:
+                return image
+            
+            option = resize_settings.get('resize_option', 'none')
+            if option == 'none':
+                return image
+            
+            original_width, original_height = image.size
+            
+            if option == 'width' and resize_settings.get('width'):
+                new_width = resize_settings['width']
+                new_height = int(original_height * (new_width / original_width))
+                return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+            elif option == 'height' and resize_settings.get('height'):
+                new_height = resize_settings['height']
+                new_width = int(original_width * (new_height / original_height))
+                return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+            elif option == 'percent' and resize_settings.get('percent'):
+                scale = resize_settings['percent']
+                new_width = int(original_width * scale)
+                new_height = int(original_height * scale)
+                return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+            return image
+            
+        except Exception as e:
+            print(f"图片尺寸调整失败: {e}")
+            return image

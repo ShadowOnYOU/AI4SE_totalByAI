@@ -82,6 +82,10 @@ class TextWatermark:
         """设置旋转角度"""
         self.angle = angle % 360
     
+    def set_rotation(self, angle: float):
+        """设置旋转角度（别名方法）"""
+        self.set_angle(angle)
+    
     def set_shadow(self, enabled: bool, color: str = "#000000"):
         """设置阴影效果"""
         self.shadow = enabled
@@ -187,6 +191,101 @@ class TextWatermark:
         
         return position_map.get(self.position, position_map["bottom_right"])
     
+    def _rotate_around_center(self, watermark: Image.Image, text_width: int, text_height: int, 
+                             text_position: Tuple[int, int]) -> Image.Image:
+        """基于水印文本中心进行旋转，确保完整显示"""
+        try:
+            if self.angle == 0:
+                return watermark
+                
+            # 计算文本中心点
+            text_x, text_y = text_position
+            text_center_x = text_x + text_width // 2
+            text_center_y = text_y + text_height // 2
+            
+            # 计算旋转后需要的最大尺寸
+            import math
+            angle_rad = math.radians(abs(self.angle))
+            cos_a = abs(math.cos(angle_rad))
+            sin_a = abs(math.sin(angle_rad))
+            
+            # 计算文本旋转后的边界框（包括效果）
+            effect_padding = 10  # 阴影和描边的额外空间
+            effective_width = text_width + effect_padding * 2
+            effective_height = text_height + effect_padding * 2
+            
+            rotated_width = int(effective_width * cos_a + effective_height * sin_a)
+            rotated_height = int(effective_width * sin_a + effective_height * cos_a)
+            
+            # 创建足够大的临时画布来绘制文本
+            temp_size = max(rotated_width, rotated_height) + 100  # 额外的安全边距
+            temp_img = Image.new('RGBA', (temp_size, temp_size), (0, 0, 0, 0))
+            temp_draw = ImageDraw.Draw(temp_img)
+            
+            # 获取字体和颜色
+            font = self._get_font()
+            fill_color = self._hex_to_rgba(self.color)
+            
+            # 在临时画布中心绘制文本
+            temp_center_x = temp_size // 2
+            temp_center_y = temp_size // 2
+            
+            # 计算文本在临时画布上的位置（居中）
+            temp_text_x = temp_center_x - text_width // 2
+            temp_text_y = temp_center_y - text_height // 2
+            
+            # 绘制带效果的文本
+            self._draw_text_with_effects(temp_draw, (temp_text_x, temp_text_y), self.text, font, fill_color)
+            
+            # 旋转临时图像，使用expand=True确保不裁剪
+            rotated_temp = temp_img.rotate(self.angle, center=(temp_center_x, temp_center_y), 
+                                         expand=True, fillcolor=(0, 0, 0, 0))
+            
+            # 创建最终结果画布（与原始水印相同大小）
+            result_canvas = Image.new('RGBA', watermark.size, (0, 0, 0, 0))
+            
+            # 计算旋转后图像在最终画布上的位置
+            rotated_center_x = rotated_temp.width // 2
+            rotated_center_y = rotated_temp.height // 2
+            
+            # 计算粘贴位置，使旋转后的中心对准原始文本中心
+            paste_x = text_center_x - rotated_center_x
+            paste_y = text_center_y - rotated_center_y
+            
+            # 粘贴旋转后的文本到结果画布
+            # 使用alpha_composite来正确处理透明度
+            if (paste_x + rotated_temp.width > 0 and paste_y + rotated_temp.height > 0 and 
+                paste_x < result_canvas.width and paste_y < result_canvas.height):
+                
+                # 计算实际可见区域
+                src_left = max(0, -paste_x)
+                src_top = max(0, -paste_y)
+                src_right = min(rotated_temp.width, result_canvas.width - paste_x)
+                src_bottom = min(rotated_temp.height, result_canvas.height - paste_y)
+                
+                dst_left = max(0, paste_x)
+                dst_top = max(0, paste_y)
+                
+                if src_right > src_left and src_bottom > src_top:
+                    # 裁剪旋转后的图像到可见部分
+                    visible_rotated = rotated_temp.crop((src_left, src_top, src_right, src_bottom))
+                    
+                    # 创建一个临时画布来进行合成
+                    temp_result = Image.new('RGBA', result_canvas.size, (0, 0, 0, 0))
+                    temp_result.paste(visible_rotated, (dst_left, dst_top), visible_rotated)
+                    
+                    # 合成到最终结果
+                    result_canvas = Image.alpha_composite(result_canvas, temp_result)
+            
+            return result_canvas
+            
+        except Exception as e:
+            print(f"旋转水印失败: {e}")
+            import traceback
+            traceback.print_exc()
+            # 如果旋转失败，返回原始图像
+            return watermark
+    
     def _draw_text_with_effects(self, draw: ImageDraw.Draw, position: Tuple[int, int], 
                                text: str, font: ImageFont.ImageFont, 
                                fill_color: Tuple[int, int, int, int]):
@@ -234,9 +333,9 @@ class TextWatermark:
             # 绘制文本
             self._draw_text_with_effects(draw, position, self.text, font, fill_color)
             
-            # 旋转处理
+            # 旋转处理 - 基于水印中心进行旋转
             if self.angle != 0:
-                watermark = watermark.rotate(self.angle, expand=True, fillcolor=(0, 0, 0, 0))
+                watermark = self._rotate_around_center(watermark, text_width, text_height, position)
             
             return watermark
             

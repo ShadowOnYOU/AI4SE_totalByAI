@@ -1,0 +1,70 @@
+{
+  "name": "专业输出",
+  "description": "专业级高质量输出模板：最高质量JPEG，保持原尺寸，精确旋转",
+  "created_time": "2025-10-03T12:05:00.000000",
+  "watermark_type": "text",
+  "text_settings": {
+    "text": "Professional",
+    "font_size": 28,
+    "font_family": "Arial",
+    "color": "#2C3E50",
+    "transparency": 70,
+    "position": "bottom_right",
+    "angle": 0,
+    "shadow": true,
+    "outline": false,
+    "shadow_color": "#34495E",
+    "outline_color": "#000000",
+    "outline_width": 1
+  },
+  "image_settings": {
+    "watermark_path": null,
+    "scale_factor": 0.15,
+    "transparency": 75,
+    "position": "top_right",
+    "custom_position": null,
+    "maintain_aspect_ratio": true,
+    "max_size_percent": 20
+  },
+  "exif_settings": {
+    "font_size": 16,
+    "font_family": "Arial",
+    "color": "#7F8C8D",
+    "transparency": 80,
+    "position": "bottom_left",
+    "custom_position": null,
+    "angle": 0,
+    "shadow": false,
+    "outline": false,
+    "shadow_color": "#000000",
+    "outline_color": "#000000",
+    "outline_width": 1,
+    "date_format": "%Y.%m.%d",
+    "fallback_to_file_time": true,
+    "prefix_text": "",
+    "suffix_text": ""
+  },
+  "position_settings": {},
+  "export_settings": {
+    "format": "jpg",
+    "naming": "keep_original",
+    "prefix": "",
+    "suffix": "",
+    "quality": 98,
+    "resize_settings": {
+      "resize_option": "none",
+      "width": 1920,
+      "height": 1080,
+      "percent": 100
+    }
+  },
+  "advanced_settings": {
+    "rotation_angle": 0,
+    "version": "1.1",
+    "feature_flags": {
+      "quality_control": true,
+      "resize_options": true,
+      "rotation_support": true
+    }
+  }
+}

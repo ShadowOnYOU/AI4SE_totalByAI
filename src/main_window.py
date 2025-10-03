@@ -7,7 +7,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 from PIL import Image, ImageTk
 
 from config import Config
@@ -1393,6 +1393,32 @@ class MainWindow:
                 template.text_settings = self.current_watermark.get_watermark_info()
                 template.image_settings = self.current_image_watermark.get_watermark_info()
                 template.exif_settings = self.current_exif_watermark.get_watermark_info()
+                
+                # 新增：保存高级功能设置（安全访问）
+                template.export_settings = {
+                    'format': getattr(self, 'format_var', tk.StringVar()).get() if hasattr(self, 'format_var') else 'jpg',
+                    'naming': getattr(self, 'naming_var', tk.StringVar()).get() if hasattr(self, 'naming_var') else 'original',
+                    'prefix': getattr(self, 'prefix_var', tk.StringVar()).get() if hasattr(self, 'prefix_var') else '',
+                    'suffix': getattr(self, 'suffix_var', tk.StringVar()).get() if hasattr(self, 'suffix_var') else '',
+                    'quality': getattr(self, 'quality_var', tk.IntVar()).get() if hasattr(self, 'quality_var') else 95,
+                    'resize_settings': {
+                        'resize_option': getattr(self, 'resize_var', tk.StringVar()).get() if hasattr(self, 'resize_var') else 'none',
+                        'width': getattr(self, 'width_var', tk.IntVar()).get() if hasattr(self, 'width_var') and getattr(self, 'width_var', tk.IntVar()).get() else 800,
+                        'height': getattr(self, 'height_var', tk.IntVar()).get() if hasattr(self, 'height_var') and getattr(self, 'height_var', tk.IntVar()).get() else 600,
+                        'percent': getattr(self, 'percent_var', tk.IntVar()).get() if hasattr(self, 'percent_var') and getattr(self, 'percent_var', tk.IntVar()).get() else 100
+                    }
+                }
+                
+                template.advanced_settings = {
+                    'rotation_angle': getattr(self, 'rotation_var', tk.IntVar()).get() if hasattr(self, 'rotation_var') else 0,
+                    'version': '1.1',  # 版本标识，便于后续升级
+                    'feature_flags': {
+                        'quality_control': hasattr(self, 'quality_var'),
+                        'resize_options': hasattr(self, 'resize_var'),
+                        'rotation_support': hasattr(self, 'rotation_var')
+                    }
+                }
+                
                 return template
             
             dialog.get_current_watermark_callback = get_current_watermark_callback
@@ -1444,14 +1470,23 @@ class MainWindow:
                 self.current_exif_watermark.load_from_dict(template.exif_settings)
                 self.update_exif_ui_from_watermark()
             
-            # 4. 设置水印类型（放在最后，这样UI会正确切换）
+            # 4. 应用高级功能设置
+            if hasattr(template, 'export_settings') and template.export_settings:
+                print("Loading export settings...")
+                self.apply_export_settings(template.export_settings)
+            
+            if hasattr(template, 'advanced_settings') and template.advanced_settings:
+                print("Loading advanced settings...")
+                self.apply_advanced_settings(template.advanced_settings)
+            
+            # 5. 设置水印类型（放在最后，这样UI会正确切换）
             self.watermark_type = template.watermark_type
             self.watermark_type_var.set(template.watermark_type)
             
-            # 5. 触发UI更新
+            # 6. 触发UI更新
             self.on_watermark_type_changed()
             
-            # 6. 强制刷新预览
+            # 7. 强制刷新预览
             self.parent.after(100, self.update_preview)
             
             print("Template applied successfully")
@@ -1460,6 +1495,75 @@ class MainWindow:
             print(f"Apply template failed: {e}")
             import traceback
             traceback.print_exc()
+    
+    def apply_export_settings(self, export_settings: Dict[str, Any]):
+        """应用导出设置（安全访问）"""
+        try:
+            print("Applying export settings...")
+            
+            # 应用格式设置
+            if 'format' in export_settings and hasattr(self, 'format_var'):
+                self.format_var.set(export_settings['format'])
+                print(f"  Format: {export_settings['format']}")
+            
+            # 应用命名设置
+            if 'naming' in export_settings and hasattr(self, 'naming_var'):
+                self.naming_var.set(export_settings['naming'])
+                print(f"  Naming: {export_settings['naming']}")
+            
+            if 'prefix' in export_settings and hasattr(self, 'prefix_var'):
+                self.prefix_var.set(export_settings['prefix'])
+                print(f"  Prefix: {export_settings['prefix']}")
+            
+            if 'suffix' in export_settings and hasattr(self, 'suffix_var'):
+                self.suffix_var.set(export_settings['suffix'])
+                print(f"  Suffix: {export_settings['suffix']}")
+            
+            # 应用质量设置
+            if 'quality' in export_settings and hasattr(self, 'quality_var'):
+                self.quality_var.set(export_settings['quality'])
+                print(f"  Quality: {export_settings['quality']}")
+            
+            # 应用尺寸设置
+            if 'resize_settings' in export_settings:
+                resize_settings = export_settings['resize_settings']
+                if 'resize_option' in resize_settings and hasattr(self, 'resize_var'):
+                    self.resize_var.set(resize_settings['resize_option'])
+                if 'width' in resize_settings and hasattr(self, 'width_var'):
+                    self.width_var.set(resize_settings['width'])
+                if 'height' in resize_settings and hasattr(self, 'height_var'):
+                    self.height_var.set(resize_settings['height'])
+                if 'percent' in resize_settings and hasattr(self, 'percent_var'):
+                    self.percent_var.set(resize_settings['percent'])
+                print(f"  Resize option: {resize_settings.get('resize_option', 'none')}")
+            
+        except Exception as e:
+            print(f"Apply export settings failed: {e}")
+    
+    def apply_advanced_settings(self, advanced_settings: Dict[str, Any]):
+        """应用高级设置"""
+        try:
+            print("Applying advanced settings...")
+            
+            # 应用旋转角度
+            if 'rotation_angle' in advanced_settings:
+                if hasattr(self, 'rotation_var'):
+                    self.rotation_var.set(advanced_settings['rotation_angle'])
+                    # 更新当前水印的旋转角度
+                    if hasattr(self.current_watermark, 'angle'):
+                        self.current_watermark.angle = advanced_settings['rotation_angle']
+                    print(f"  Rotation angle: {advanced_settings['rotation_angle']}")
+            
+            # 检查版本兼容性
+            version = advanced_settings.get('version', '1.0')
+            print(f"  Template version: {version}")
+            
+            # 检查功能支持
+            feature_flags = advanced_settings.get('feature_flags', {})
+            print(f"  Feature flags: {feature_flags}")
+            
+        except Exception as e:
+            print(f"Apply advanced settings failed: {e}")
     
     def update_text_ui_from_watermark(self):
         """从水印设置更新文本UI"""

@@ -1,0 +1,41 @@
+{
+  "name": "测试高级模板",
+  "description": "程序创建的测试模板",
+  "created_time": "2025-10-03T16:09:25.066013",
+  "watermark_type": "text",
+  "text_settings": {
+    "text": "测试水印",
+    "font_size": 36,
+    "color": "#FF0000",
+    "transparency": 80,
+    "position": "center",
+    "angle": 30,
+    "shadow": true,
+    "outline": true
+  },
+  "image_settings": {},
+  "exif_settings": {},
+  "position_settings": {},
+  "export_settings": {
+    "format": "jpg",
+    "naming": "add_prefix",
+    "prefix": "TEST_",
+    "suffix": "",
+    "quality": 90,
+    "resize_settings": {
+      "resize_option": "percent",
+      "width": 1920,
+      "height": 1080,
+      "percent": 75
+    }
+  },
+  "advanced_settings": {
+    "rotation_angle": 30,
+    "version": "1.1",
+    "feature_flags": {
+      "quality_control": true,
+      "resize_options": true,
+      "rotation_support": true
+    }
+  }
+}

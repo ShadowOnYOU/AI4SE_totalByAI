@@ -1,0 +1,70 @@
+{
+  "name": "高级功能演示",
+  "description": "包含所有高级功能的演示模板：JPEG质量控制、图片缩放、水印旋转",
+  "created_time": "2025-10-03T12:00:00.000000",
+  "watermark_type": "text",
+  "text_settings": {
+    "text": "© 2025 高级水印",
+    "font_size": 32,
+    "font_family": "Arial",
+    "color": "#FF6B6B",
+    "transparency": 75,
+    "position": "center",
+    "angle": 45,
+    "shadow": true,
+    "outline": true,
+    "shadow_color": "#000000",
+    "outline_color": "#FFFFFF",
+    "outline_width": 2
+  },
+  "image_settings": {
+    "watermark_path": null,
+    "scale_factor": 0.25,
+    "transparency": 80,
+    "position": "bottom_right",
+    "custom_position": null,
+    "maintain_aspect_ratio": true,
+    "max_size_percent": 35
+  },
+  "exif_settings": {
+    "font_size": 20,
+    "font_family": "Arial",
+    "color": "#4ECDC4",
+    "transparency": 85,
+    "position": "bottom_left",
+    "custom_position": null,
+    "angle": -15,
+    "shadow": true,
+    "outline": false,
+    "shadow_color": "#000000",
+    "outline_color": "#000000",
+    "outline_width": 1,
+    "date_format": "%Y-%m-%d %H:%M",
+    "fallback_to_file_time": true,
+    "prefix_text": "📷 拍摄于: ",
+    "suffix_text": ""
+  },
+  "position_settings": {},
+  "export_settings": {
+    "format": "jpg",
+    "naming": "prefix_suffix",
+    "prefix": "WM_",
+    "suffix": "_HD",
+    "quality": 92,
+    "resize_settings": {
+      "resize_option": "percent",
+      "width": 1920,
+      "height": 1080,
+      "percent": 80
+    }
+  },
+  "advanced_settings": {
+    "rotation_angle": 45,
+    "version": "1.1",
+    "feature_flags": {
+      "quality_control": true,
+      "resize_options": true,
+      "rotation_support": true
+    }
+  }
+}

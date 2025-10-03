@@ -28,6 +28,9 @@ class WatermarkTemplate:
         self.text_settings = {}
         self.image_settings = {}
         self.exif_settings = {}
+        # 新增：高级功能设置
+        self.export_settings = {}
+        self.advanced_settings = {}
         self.position_settings = {}
     
     def set_text_watermark(self, text_watermark):
@@ -56,7 +59,10 @@ class WatermarkTemplate:
             'text_settings': self.text_settings,
             'image_settings': self.image_settings,
             'exif_settings': self.exif_settings,
-            'position_settings': self.position_settings
+            'position_settings': self.position_settings,
+            # 新增：高级功能设置
+            'export_settings': self.export_settings,
+            'advanced_settings': self.advanced_settings
         }
     
     @classmethod
@@ -71,6 +77,9 @@ class WatermarkTemplate:
         template.image_settings = data.get('image_settings', {})
         template.exif_settings = data.get('exif_settings', {})
         template.position_settings = data.get('position_settings', {})
+        # 新增：高级功能设置（兼容旧模板）
+        template.export_settings = data.get('export_settings', {})
+        template.advanced_settings = data.get('advanced_settings', {})
         return template
 
 
@@ -89,9 +98,23 @@ class TemplateManager:
         if not os.path.exists(self.templates_dir):
             os.makedirs(self.templates_dir)
     
-    def get_template_file_path(self, template_name: str) -> str:
-        """获取模板文件路径"""
-        safe_name = "".join(c for c in template_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    def get_template_file_path(self, template_name) -> str:
+        """获取模板文件路径（安全类型处理）"""
+        # 安全转换为字符串，处理各种输入类型
+        if isinstance(template_name, str):
+            name_str = template_name
+        elif isinstance(template_name, (int, float)):
+            name_str = str(template_name)
+        elif template_name is None:
+            raise ValueError("模板名称不能为None")
+        else:
+            name_str = str(template_name)
+        
+        # 生成安全的文件名
+        safe_name = "".join(c for c in name_str if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        if not safe_name:
+            raise ValueError(f"无效的模板名称: {template_name}")
+        
         return os.path.join(self.templates_dir, f"{safe_name}.json")
     
     def save_template(self, template: WatermarkTemplate) -> bool:
@@ -114,26 +137,47 @@ class TemplateManager:
             print(f"Save template failed: {e}")
             return False
     
-    def load_template(self, template_name: str) -> Optional[WatermarkTemplate]:
-        """加载模板"""
+    def load_template(self, template_name) -> Optional[WatermarkTemplate]:
+        """加载模板（安全类型处理）"""
         try:
-            if template_name in self.templates:
-                return self.templates[template_name]
+            # 类型安全转换
+            if isinstance(template_name, str):
+                name_key = template_name
+            elif isinstance(template_name, (int, float)):
+                name_key = str(template_name)
+                print(f"[WARNING] 模板名称为数字类型，已转换为字符串: {template_name} -> '{name_key}'")
+            elif template_name is None:
+                print(f"[ERROR] 模板名称不能为None")
+                return None
+            else:
+                name_key = str(template_name)
+                print(f"[WARNING] 模板名称类型异常，已转换为字符串: {type(template_name)} -> '{name_key}'")
             
-            file_path = self.get_template_file_path(template_name)
+            # 检查缓存
+            if name_key in self.templates:
+                return self.templates[name_key]
+            
+            # 获取文件路径
+            file_path = self.get_template_file_path(name_key)
             if not os.path.exists(file_path):
+                print(f"[INFO] 模板文件不存在: {file_path}")
                 return None
             
+            # 读取和解析文件
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # 创建模板对象
             template = WatermarkTemplate.from_dict(data)
-            self.templates[template_name] = template
+            self.templates[name_key] = template
             
             return template
             
         except Exception as e:
-            print(f"Load template failed: {e}")
+            print(f"❌ Load template failed: {e}")
+            print(f"   模板名称: {template_name} (类型: {type(template_name)})")
+            import traceback
+            traceback.print_exc()
             return None
     
     def delete_template(self, template_name: str) -> bool:

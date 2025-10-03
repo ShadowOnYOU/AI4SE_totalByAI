@@ -34,7 +34,7 @@ class ExifTextWatermark:
     def __init__(self):
         """初始化EXIF文本水印"""
         self.font_size = 24
-        self.font_family = "Arial"
+        self.font_family = "STHeiti Medium.ttc"  # 使用支持中文的默认字体
         self.color = "#FFFFFF"
         self.transparency = 80  # 0-100
         self.position = "bottom_right"
@@ -200,7 +200,7 @@ class ExifTextWatermark:
         return final_text.strip()
     
     def _get_font(self, size: int = None) -> ImageFont.ImageFont:
-        """获取字体对象"""
+        """获取字体对象，优先选择支持中文的字体"""
         if size is None:
             size = self.font_size
         
@@ -208,16 +208,47 @@ class ExifTextWatermark:
         if cache_key in self._font_cache:
             return self._font_cache[cache_key]
         
+        font = None
+        
+        # 首先尝试用户指定的字体
         try:
-            # 尝试使用系统字体
             font = ImageFont.truetype(self.font_family, size)
         except (OSError, IOError):
-            try:
-                # 尝试使用默认字体
-                font = ImageFont.load_default()
-            except:
-                # 使用基本字体
-                font = ImageFont.load_default()
+            # 如果用户指定字体失败，尝试支持中文的系统字体
+            chinese_fonts = [
+                # macOS 中文字体
+                "/System/Library/Fonts/STHeiti Medium.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc", 
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "STHeiti Medium.ttc",
+                "Hiragino Sans GB.ttc",
+                # 通用字体（也支持中文）
+                "Arial.ttf",
+                "Helvetica.ttc",
+                # Windows 中文字体（如果在Windows上运行）
+                "C:/Windows/Fonts/simsun.ttc",
+                "C:/Windows/Fonts/simhei.ttf", 
+                "C:/Windows/Fonts/msyh.ttc",
+                # Linux 中文字体
+                "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"
+            ]
+            
+            for font_path in chinese_fonts:
+                try:
+                    font = ImageFont.truetype(font_path, size)
+                    print(f"Using fallback Chinese font: {font_path}")
+                    break
+                except (OSError, IOError):
+                    continue
+            
+            # 如果所有中文字体都失败，使用默认字体
+            if font is None:
+                try:
+                    font = ImageFont.load_default()
+                    print("Warning: Using default font, Chinese characters may not display correctly")
+                except:
+                    font = ImageFont.load_default()
         
         self._font_cache[cache_key] = font
         return font

@@ -40,63 +40,44 @@ class SimpleWatermarkDrag:
         self.canvas.bind('<Motion>', self.on_motion)
     
     def show_watermark(self, position: Tuple[int, int], text: str = "水印", watermark_type: str = "text"):
-        """显示水印预览"""
+        """显示水印预览 - 创建不可见的拖拽区域"""
+        print(f"Setting up invisible drag area at {position}, type: {watermark_type}")
+        
+        # 清除之前的水印
         self.hide_watermark()
         
         x, y = position
         
-        # 根据水印类型显示真实的水印内容
-        display_text = text
-        font_size = 12
-        text_color = "black"
-        
-        if watermark_type == "text":
-            # 文本水印：显示实际文本
-            display_text = text if text else "Sample Text"
-            text_color = "black"
-            font_size = 14
-        elif watermark_type == "image":
-            # 图片水印：显示图片名称
-            display_text = text if text else "Image Watermark"
-            text_color = "blue"
-            font_size = 12
+        # 创建完全透明的拖拽区域，用户看不到但可以拖拽
+        # 根据水印类型确定拖拽区域大小
+        if watermark_type == "image":
+            # 图片水印：使用固定大小的拖拽区域
+            drag_width, drag_height = 80, 60
+        elif watermark_type == "text":
+            # 文本水印：根据文本长度估算区域大小
+            text_length = len(text) if text else 8
+            drag_width = max(60, text_length * 8)
+            drag_height = 20
         elif watermark_type == "exif":
-            # EXIF水印：显示日期
-            display_text = text if text else "2024-01-15"
-            text_color = "gray"
-            font_size = 12
+            # EXIF水印：日期文本的固定大小
+            drag_width, drag_height = 100, 20
+        else:
+            # 默认大小
+            drag_width, drag_height = 80, 30
         
-        # 自动截断过长的文本
-        if len(display_text) > 20:
-            display_text = display_text[:17] + "..."
-        
-        # 创建水印文本（带背景以便点击）
-        self.watermark_text = self.canvas.create_text(
-            x, y,
-            text=display_text,
-            font=("Arial", font_size, "bold"),
-            fill=text_color,
-            anchor="nw",
+        # 创建完全透明的拖拽区域（用户看不见）
+        self.watermark_rect = self.canvas.create_rectangle(
+            x, y, x + drag_width, y + drag_height,
+            outline='',      # 无边框
+            fill='',         # 无填充
+            width=0,         # 无边框宽度
             tags='watermark_drag'
         )
         
-        # 获取文本边界来计算点击区域
-        bbox = self.canvas.bbox(self.watermark_text)
-        if bbox:
-            # 创建透明的矩形用于点击检测（不显示边框）
-            self.watermark_rect = self.canvas.create_rectangle(
-                bbox[0]-5, bbox[1]-5, bbox[2]+5, bbox[3]+5,
-                outline='',
-                fill='',
-                width=0,
-                tags='watermark_drag'
-            )
-            self.watermark_size = (bbox[2] - bbox[0] + 10, bbox[3] - bbox[1] + 10)
-        else:
-            self.watermark_size = (100, 30)
-        
+        self.watermark_size = (drag_width, drag_height)
         self.current_position = position
-        print(f"Watermark ({watermark_type}) shown at {position}: {display_text}")
+        
+        print(f"Invisible drag area created: {drag_width}x{drag_height} at {position}")
     
     def hide_watermark(self):
         """隐藏水印"""

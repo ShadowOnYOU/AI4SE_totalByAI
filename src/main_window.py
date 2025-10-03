@@ -252,24 +252,18 @@ class MainWindow:
                                     variable=self.transparency_var, command=self.on_transparency_changed)
         transparency_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         
-        # 位置设置
-        position_frame = tk.LabelFrame(scrollable_frame, text="位置设置", padx=5, pady=5)
-        position_frame.pack(fill=tk.X, padx=5, pady=5)
+        # 文本水印位置设置
+        text_position_frame = tk.Frame(self.text_frame)
+        text_position_frame.pack(fill=tk.X, pady=(5, 0))
         
-        tk.Label(position_frame, text="位置:").pack(anchor=tk.W)
+        tk.Label(text_position_frame, text="位置:").pack(side=tk.LEFT)
         self.position_var = tk.StringVar(value=self.current_watermark.position)
-        position_combo = ttk.Combobox(position_frame, textvariable=self.position_var, width=20)
+        position_combo = ttk.Combobox(text_position_frame, textvariable=self.position_var, width=15)
         position_combo['values'] = ('top_left', 'top_center', 'top_right',
                                   'center_left', 'center', 'center_right',
                                   'bottom_left', 'bottom_center', 'bottom_right', 'custom')
-        position_combo.pack(fill=tk.X, pady=(0, 5))
+        position_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
         position_combo.bind('<<ComboboxSelected>>', self.on_position_changed)
-        
-        # 拖拽调整开关
-        self.drag_enabled_var = tk.BooleanVar(value=True)
-        drag_check = tk.Checkbutton(position_frame, text="启用拖拽调整", 
-                                   variable=self.drag_enabled_var, command=self.on_drag_toggle)
-        drag_check.pack(anchor=tk.W, pady=(0, 5))
         
         # 效果设置
         effect_frame = tk.LabelFrame(scrollable_frame, text="效果设置", padx=5, pady=5)
@@ -1363,17 +1357,7 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("错误", f"管理模板失败: {e}")
     
-    def on_drag_toggle(self):
-        """拖拽开关变化"""
-        if self.watermark_drag_handler:
-            if self.drag_enabled_var.get():
-                self.watermark_drag_handler.setup_events()
-            else:
-                self.preview_widget.unbind('<Button-1>')
-                self.preview_widget.unbind('<B1-Motion>')
-                self.preview_widget.unbind('<ButtonRelease-1>')
-                self.preview_widget.unbind('<Motion>')
-    
+
     def calculate_scale_factor(self):
         """计算缩放因子"""
         if not hasattr(self, 'current_image_size') or not self.current_image_size:
